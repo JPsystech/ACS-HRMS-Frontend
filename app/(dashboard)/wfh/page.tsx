@@ -89,7 +89,11 @@ export default function WfhApprovalsPage() {
     setApiError("")
     try {
       const res = await api.get<{ items?: WfhRequest[]; total?: number }>(
+<<<<<<< HEAD
         "/api/v1/wfh/pending"
+=======
+        "/api/v1/wfh/my"
+>>>>>>> 09ba90f1c8e07c2cce55c8bb04c87dc2708a608b
       )
       const items = Array.isArray(res?.items) ? res.items : []
       setWfhRequests(items)
