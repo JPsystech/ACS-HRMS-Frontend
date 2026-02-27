@@ -105,6 +105,7 @@ export default function ReportsPage() {
   const [leavesEmployeeId, setLeavesEmployeeId] = useState<string>("all")
   const [leavesDepartmentId, setLeavesDepartmentId] = useState<string>("all")
   const [leavesStatus, setLeavesStatus] = useState<string>("all")
+  const [leavesAllTime, setLeavesAllTime] = useState(false)
   const [leavesLoading, setLeavesLoading] = useState(false)
   const [leavesError, setLeavesError] = useState<string | null>(null)
 
@@ -119,6 +120,7 @@ export default function ReportsPage() {
   const [previewRows, setPreviewRows] = useState<string[][]>([])
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewDownloadFilename, setPreviewDownloadFilename] = useState("")
+  const [previewReportType, setPreviewReportType] = useState<"attendance" | "leaves" | "compoff" | null>(null)
 
   useEffect(() => {
     api.get<{ id: number; emp_code: string; name: string }[]>("/api/v1/employees").then((r) => {
@@ -189,7 +191,12 @@ export default function ReportsPage() {
       const params = { from, to, ...extraParams }
       const q = buildQuery(params)
       setPreviewOpen(true)
-      setPreviewTitle((reportType === "attendance" ? "Attendance" : reportType === "leaves" ? "Leaves" : "Comp-Off") + " (first " + PREVIEW_ROWS + " rows)")
+      setPreviewTitle(
+        reportType === "leaves"
+          ? "Leaves (all rows)"
+          : (reportType === "attendance" ? "Attendance" : "Comp-Off") + " (first " + PREVIEW_ROWS + " rows)"
+      )
+      setPreviewReportType(reportType)
       setPreviewRows([])
       setPreviewDownloadFilename(`${reportType}_${from.replace(/-/g, "")}_to_${to.replace(/-/g, "")}.csv`)
       setPreviewLoading(true)
@@ -209,8 +216,14 @@ export default function ReportsPage() {
           // Header only, no data rows – still show columns plus a friendly message row
           setPreviewRows([parsed[0], ["No data for selected period"]])
         } else {
-          // Header + data rows – show up to first 20 data rows
-          setPreviewRows(parsed.slice(0, PREVIEW_ROWS + 1))
+          // Header + data rows
+          if (reportType === "leaves") {
+            // Show all rows for Leaves report (role-scoped by backend)
+            setPreviewRows(parsed)
+          } else {
+            // For other reports, show first N rows to keep preview snappy
+            setPreviewRows(parsed.slice(0, PREVIEW_ROWS + 1))
+          }
         }
       } catch (e) {
         const msg = e instanceof ApiClientError ? (typeof e.data?.detail === "string" ? e.data.detail : "Failed to load") : "Failed to load"
@@ -343,7 +356,7 @@ export default function ReportsPage() {
               Leaves Report
             </CardTitle>
             <CardDescription>
-              Export leave requests overlapping the date range. Filters apply as supported by the backend.
+              Export leave requests overlapping the date range. Includes LWP days for salary deduction tracking. Filters apply as supported by the backend.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -356,11 +369,11 @@ export default function ReportsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label>From</Label>
-                <Input type="date" value={leavesFrom} onChange={(e) => setLeavesFrom(e.target.value)} disabled={leavesLoading} />
+                <Input type="date" value={leavesFrom} onChange={(e) => setLeavesFrom(e.target.value)} disabled={leavesLoading || leavesAllTime} />
               </div>
               <div className="space-y-2">
                 <Label>To</Label>
-                <Input type="date" value={leavesTo} onChange={(e) => setLeavesTo(e.target.value)} disabled={leavesLoading} />
+                <Input type="date" value={leavesTo} onChange={(e) => setLeavesTo(e.target.value)} disabled={leavesLoading || leavesAllTime} />
               </div>
               <div className="space-y-2">
                 <Label>Employee</Label>
@@ -397,14 +410,27 @@ export default function ReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Range</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="leaves-alltime"
+                    type="checkbox"
+                    checked={leavesAllTime}
+                    onChange={(e) => setLeavesAllTime(e.target.checked)}
+                    disabled={leavesLoading}
+                  />
+                  <label htmlFor="leaves-alltime" className="text-sm text-muted-foreground">All time (ignores From/To)</label>
+                </div>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() =>
                   handleDownload(
                     "leaves",
-                    leavesFrom,
-                    leavesTo,
+                    leavesAllTime ? "2000-01-01" : leavesFrom,
+                    leavesAllTime ? "2099-12-31" : leavesTo,
                     {
                       employee_id: leavesEmployeeId === "all" ? undefined : leavesEmployeeId,
                       department_id: leavesDepartmentId === "all" ? undefined : leavesDepartmentId,
@@ -424,8 +450,8 @@ export default function ReportsPage() {
                 onClick={() =>
                   handlePreview(
                     "leaves",
-                    leavesFrom,
-                    leavesTo,
+                    leavesAllTime ? "2000-01-01" : leavesFrom,
+                    leavesAllTime ? "2099-12-31" : leavesTo,
                     {
                       employee_id: leavesEmployeeId === "all" ? undefined : leavesEmployeeId,
                       department_id: leavesDepartmentId === "all" ? undefined : leavesDepartmentId,
@@ -436,7 +462,7 @@ export default function ReportsPage() {
                 }
                 disabled={leavesLoading}
               >
-                Preview (first 20 rows)
+                Preview
               </Button>
             </div>
           </CardContent>
@@ -525,7 +551,13 @@ export default function ReportsPage() {
           <DialogHeader>
             <DialogTitle>{previewTitle}</DialogTitle>
             <DialogDescription id="preview-dialog-desc">
-              {previewLoading ? "Loading report…" : previewRows.length === 1 && previewRows[0].length === 1 ? "No records found for the selected filters." : "First 20 rows of the report. Use Download to get the full CSV."}
+              {previewLoading
+                ? "Loading report…"
+                : previewRows.length === 1 && previewRows[0].length === 1
+                ? "No records found for the selected filters."
+                : previewReportType === "leaves"
+                ? `All rows shown (Rows: ${Math.max(0, previewRows.length - 1)}). Use Download to get a CSV copy.`
+                : `First ${PREVIEW_ROWS} rows of the report. Use Download to get the full CSV.`}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-auto flex-1 min-h-0">
