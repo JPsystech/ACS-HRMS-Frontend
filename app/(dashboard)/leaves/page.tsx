@@ -595,8 +595,8 @@ export default function LeavesPage() {
                 <SelectItem value="CL">CL</SelectItem>
                 <SelectItem value="PL">PL</SelectItem>
                 <SelectItem value="SL">SL</SelectItem>
-                <SelectItem value="RH">RH</SelectItem>
                 <SelectItem value="FL">FL</SelectItem>
+                <SelectItem value="RH">RH</SelectItem>
                 <SelectItem value="COMPOFF">Comp Off</SelectItem>
                 <SelectItem value="LWP">LWP</SelectItem>
               </SelectContent>
