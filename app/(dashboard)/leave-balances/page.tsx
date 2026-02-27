@@ -77,6 +77,9 @@ type EmployeeBalanceRow = {
   pl_allocated: number
   pl_remaining: number
   pl_used: number
+  fl_allocated: number
+  fl_remaining: number
+  fl_used: number
   rh_allocated: number
   rh_remaining: number
   rh_used: number
@@ -145,6 +148,9 @@ export default function LeaveBalancesPage() {
               pl_allocated: 0,
               pl_remaining: 0,
               pl_used: 0,
+              fl_allocated: 0,
+              fl_remaining: 0,
+              fl_used: 0,
               rh_allocated: 0,
               rh_remaining: 0,
               rh_used: 0,
@@ -166,6 +172,10 @@ export default function LeaveBalancesPage() {
             row.pl_remaining = i.remaining
             row.pl_used = i.used
             row.pl_eligible = i.eligible
+          } else if (lt === "FL") {
+            row.fl_allocated = i.allocated
+            row.fl_remaining = i.remaining
+            row.fl_used = i.used
           } else if (lt === "RH") {
             row.rh_allocated = i.allocated
             row.rh_remaining = i.remaining
@@ -290,6 +300,7 @@ export default function LeaveBalancesPage() {
                   <TableHead>CL (Total / Used / Remaining)</TableHead>
                   <TableHead>SL (Total / Used / Remaining)</TableHead>
                   <TableHead>PL (Total / Used / Remaining)</TableHead>
+                  <TableHead>FL (Total / Used / Remaining)</TableHead>
                   <TableHead>RH (Total / Used / Remaining)</TableHead>
                   <TableHead>PL Eligible</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -307,6 +318,7 @@ export default function LeaveBalancesPage() {
                       <TableCell>{r.cl_allocated} / {r.cl_used} / {r.cl_remaining}</TableCell>
                       <TableCell>{r.sl_allocated} / {r.sl_used} / {r.sl_remaining}</TableCell>
                       <TableCell>{r.pl_allocated} / {r.pl_used} / {r.pl_remaining}</TableCell>
+                      <TableCell>{r.fl_allocated} / {r.fl_used} / {r.fl_remaining}</TableCell>
                       <TableCell>{r.rh_allocated} / {r.rh_used} / {r.rh_remaining}</TableCell>
                       <TableCell>
                         {r.pl_eligible ? (
