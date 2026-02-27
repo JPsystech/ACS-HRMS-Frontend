@@ -292,45 +292,94 @@ export default function AccrualPage() {
                   <Skeleton className="h-12 w-full" />
                 </div>
               ) : statusData && statusData.employees.length > 0 ? (
-                <div className="border rounded-md">
-                  <div className="grid grid-cols-7 gap-4 p-4 bg-muted font-medium text-sm">
-                    <div>Employee</div>
-                    <div>CL Balance</div>
-                    <div>SL Balance</div>
-                    <div>PL Balance</div>
-                    <div>CL Used</div>
-                    <div>SL Used</div>
-                    <div>PL Used</div>
+                <>
+                  {/* Desktop/Tablet table-style grid */}
+                  <div className="hidden md:block border rounded-md overflow-hidden">
+                    <div className="grid grid-cols-7 gap-4 p-4 bg-muted font-medium text-sm">
+                      <div>Employee</div>
+                      <div>CL Balance</div>
+                      <div>SL Balance</div>
+                      <div>PL Balance</div>
+                      <div>CL Used</div>
+                      <div>SL Used</div>
+                      <div>PL Used</div>
+                    </div>
+                    {statusData.employees.slice(0, 10).map((employee) => (
+                      <div key={employee.employee_id} className="grid grid-cols-7 gap-4 p-4 border-t text-sm">
+                        <div className="font-medium">{employee.name}</div>
+                        <div>
+                          <Badge variant={employee.cl_remaining > 0 ? "default" : "secondary"}>
+                            {employee.cl_remaining}
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge variant={employee.sl_remaining > 0 ? "default" : "secondary"}>
+                            {employee.sl_remaining}
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge variant={employee.pl_remaining > 0 ? "default" : "secondary"}>
+                            {employee.pl_remaining}
+                          </Badge>
+                        </div>
+                        <div className="text-muted-foreground">{employee.cl_used}</div>
+                        <div className="text-muted-foreground">{employee.sl_used}</div>
+                        <div className="text-muted-foreground">{employee.pl_used}</div>
+                      </div>
+                    ))}
+                    {statusData.employees.length > 10 && (
+                      <div className="p-4 border-t text-center text-muted-foreground">
+                        Showing 10 of {statusData.total} employees
+                      </div>
+                    )}
                   </div>
-                  {statusData.employees.slice(0, 10).map((employee) => (
-                    <div key={employee.employee_id} className="grid grid-cols-7 gap-4 p-4 border-t text-sm">
-                      <div className="font-medium">{employee.name}</div>
-                      <div>
-                        <Badge variant={employee.cl_remaining > 0 ? "default" : "secondary"}>
-                          {employee.cl_remaining}
-                        </Badge>
+
+                  {/* Mobile card list */}
+                  <div className="md:hidden space-y-3">
+                    {statusData.employees.slice(0, 10).map((employee) => (
+                      <div key={employee.employee_id} className="rounded-lg border p-4 shadow-sm text-sm">
+                        <div className="font-medium mb-2">{employee.name}</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">CL Balance</span>
+                            <Badge variant={employee.cl_remaining > 0 ? "default" : "secondary"}>
+                              {employee.cl_remaining}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">SL Balance</span>
+                            <Badge variant={employee.sl_remaining > 0 ? "default" : "secondary"}>
+                              {employee.sl_remaining}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">PL Balance</span>
+                            <Badge variant={employee.pl_remaining > 0 ? "default" : "secondary"}>
+                              {employee.pl_remaining}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">CL Used</span>
+                            <span className="text-right">{employee.cl_used}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">SL Used</span>
+                            <span className="text-right">{employee.sl_used}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">PL Used</span>
+                            <span className="text-right">{employee.pl_used}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <Badge variant={employee.sl_remaining > 0 ? "default" : "secondary"}>
-                          {employee.sl_remaining}
-                        </Badge>
+                    ))}
+                    {statusData.employees.length > 10 && (
+                      <div className="p-2 text-center text-muted-foreground">
+                        Showing 10 of {statusData.total} employees
                       </div>
-                      <div>
-                        <Badge variant={employee.pl_remaining > 0 ? "default" : "secondary"}>
-                          {employee.pl_remaining}
-                        </Badge>
-                      </div>
-                      <div className="text-muted-foreground">{employee.cl_used}</div>
-                      <div className="text-muted-foreground">{employee.sl_used}</div>
-                      <div className="text-muted-foreground">{employee.pl_used}</div>
-                    </div>
-                  ))}
-                  {statusData.employees.length > 10 && (
-                    <div className="p-4 border-t text-center text-muted-foreground">
-                      Showing 10 of {statusData.total} employees
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </>
               ) : (
                 <EmptyState
                   icon={Calendar}
