@@ -531,22 +531,84 @@ export default function LeavesPage() {
     >
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="pending">Pending For Me</TabsTrigger>
+        <TabsList
+          className="w-full overflow-x-auto whitespace-nowrap flex gap-1 md:grid md:grid-cols-6 px-1 md:px-0"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <TabsTrigger className="flex-shrink-0" value="pending">Pending For Me</TabsTrigger>
           {user?.role === "MD" || user?.role === "ADMIN" ? (
-            <TabsTrigger value="all">All Leaves</TabsTrigger>
+            <TabsTrigger className="flex-shrink-0" value="all">All Leaves</TabsTrigger>
           ) : null}
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          <TabsTrigger value="lwp">LWP</TabsTrigger>
+          <TabsTrigger className="flex-shrink-0" value="approved">Approved</TabsTrigger>
+          <TabsTrigger className="flex-shrink-0" value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger className="flex-shrink-0" value="cancelled">Cancelled</TabsTrigger>
+          <TabsTrigger className="flex-shrink-0" value="lwp">LWP</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Filters */}
       <Card className="border-0 shadow-sm mb-4">
         <CardContent className="pt-6">
-          <div className="space-y-4">
+          {/* Mobile accordion */}
+          <div className="md:hidden">
+            <details className="rounded-md border">
+              <summary className="cursor-pointer px-4 py-2 text-sm font-medium">Filters</summary>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Employee</Label>
+                    <Select
+                      value={filters.employee_id?.toString() || "all"}
+                      onValueChange={(value) =>
+                        setFilters({ ...filters, employee_id: value === "all" ? undefined : parseInt(value) })
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="All Employees" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Employees</SelectItem>
+                        {employees.map((emp) => (
+                          <SelectItem key={emp.id} value={emp.id.toString()}>{emp.name} ({emp.emp_code})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Leave Type</Label>
+                    <Select
+                      value={filters.leave_type || "all"}
+                      onValueChange={(value) => setFilters({ ...filters, leave_type: value === "all" ? undefined : (value as LeaveType) })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="All Types" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="CL">CL</SelectItem>
+                        <SelectItem value="PL">PL</SelectItem>
+                        <SelectItem value="SL">SL</SelectItem>
+                        <SelectItem value="FL">FL</SelectItem>
+                        <SelectItem value="RH">RH</SelectItem>
+                        <SelectItem value="COMPOFF">Comp Off</SelectItem>
+                        <SelectItem value="LWP">LWP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">From Date</Label>
+                    <Input type="date" value={filters.from_date} onChange={(e) => setFilters({ ...filters, from_date: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">To Date</Label>
+                    <Input type="date" value={filters.to_date} onChange={(e) => setFilters({ ...filters, to_date: e.target.value })} />
+                  </div>
+                  <Button variant="outline" className="w-full" onClick={resetFilters}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </details>
+          </div>
+          {/* Desktop/Tablet inline filters */}
+          <div className="hidden md:block">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">
@@ -663,7 +725,8 @@ export default function LeavesPage() {
       ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Desktop/Tablet table */}
+            <div className="overflow-x-auto hidden md:block">
               <AnimatedTable>
                 <TableHeader>
                   <tr>
@@ -760,6 +823,45 @@ export default function LeavesPage() {
                   </TableBody>
                 </AnimatedTable>
               </div>
+            {/* Mobile card list */}
+            <div className="md:hidden p-3 space-y-3">
+              {leaves.map((leave) => {
+                const emp = getEmployeeDetails(leave.employee_id)
+                return (
+                  <div key={leave.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">
+                        {emp.name} <span className="text-muted-foreground text-sm">({emp.emp_code})</span>
+                      </div>
+                      <Badge variant="outline">{LEAVE_TYPE_LABEL[leave.leave_type] ?? leave.leave_type}</Badge>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Department</span><span>{emp.department}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">From</span><span>{format(new Date(leave.from_date), "MMM dd, yyyy")}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">To</span><span>{format(new Date(leave.to_date), "MMM dd, yyyy")}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Days</span><span>{leave.computed_days}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Reason</span><span className="truncate max-w-[60%] text-right">{leave.reason || "-"}</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge variant={getStatusBadgeVariant(leave.status)}>{leave.status.replace("_", " ")}</Badge>
+                      </div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Approver</span><span>{getApproverName(leave.approver_id, leave)}</span></div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      {canApproveReject(leave) && (
+                        <>
+                          <Button size="sm" className="flex-1" onClick={() => handleApprove(leave)}>Approve</Button>
+                          <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleReject(leave)}>Reject</Button>
+                        </>
+                      )}
+                      {canCancel(leave) && (
+                        <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleCancel(leave)}>Cancel</Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
             </CardContent>
           </Card>
         )}

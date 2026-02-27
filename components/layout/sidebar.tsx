@@ -125,10 +125,15 @@ const navItems: NavItem[] = [
   },
 ]
 
-export function Sidebar() {
+type SidebarProps = {
+  initialCollapsed?: boolean
+  onNavigate?: () => void
+}
+
+export function Sidebar({ initialCollapsed = false, onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const { user, mustChangePassword } = useAuthStore()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(initialCollapsed)
 
   // Helper function to check if user is admin
   const isAdmin = user?.role === "ADMIN"
@@ -149,6 +154,10 @@ export function Sidebar() {
         const role: Role = (user?.role as Role) ?? "EMPLOYEE"
         return item.roles.includes(role)
       })
+
+  const handleNavClick = () => {
+    if (onNavigate) onNavigate()
+  }
 
   return (
     <motion.div
@@ -217,7 +226,7 @@ export function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
             >
-              <Link href={item.href}>
+              <Link href={item.href} onClick={handleNavClick}>
                 <motion.div
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative group",

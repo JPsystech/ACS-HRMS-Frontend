@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, ChevronRight } from "lucide-react"
+import { LogOut, User, ChevronRight, Menu } from "lucide-react"
 import { usePathname } from "next/navigation"
 import * as React from "react"
 import {
@@ -49,7 +49,11 @@ function getBreadcrumbs(pathname: string): string[] {
   return breadcrumbs
 }
 
-export function Topbar() {
+type TopbarProps = {
+  onMenuClick?: () => void
+}
+
+export function Topbar({ onMenuClick }: TopbarProps) {
   const { user, logout } = useAuthStore()
   const pathname = usePathname()
   const breadcrumbs = getBreadcrumbs(pathname)
@@ -85,9 +89,17 @@ export function Topbar() {
         scrolled && "shadow-sm"
       )}
     >
-      <div className="flex h-full items-center justify-between px-6">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
+        {/* Left: Mobile hamburger + Breadcrumbs */}
+        <div className="flex items-center gap-3">
+          {/* Mobile hamburger (shows drawer) */}
+          <button
+            className="inline-flex items-center justify-center p-2 rounded-md hover:bg-muted lg:hidden"
+            onClick={() => onMenuClick?.()}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <nav className="flex items-center gap-2 text-sm">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
