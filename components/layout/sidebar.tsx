@@ -22,6 +22,8 @@ import {
   ChevronRight,
   CheckCircle,
   Layers,
+  BarChart2,
+  HouseIcon,
 } from "lucide-react"
 
 import { Role } from "@/types/models"
@@ -63,6 +65,12 @@ const navItems: NavItem[] = [
     icon: Clock,
   },
   {
+    title: "Attendance Corrections",
+    href: "/attendance/corrections",
+    icon: FileText,
+    roles: ["HR", "ADMIN"],
+  },
+  {
     title: "Leaves",
     href: "/leaves",
     icon: Calendar,
@@ -91,6 +99,12 @@ const navItems: NavItem[] = [
     icon: CalendarDays,
   },
   {
+    title: "Company Events",
+    href: "/calendars/events",
+    icon: CalendarDays,
+    roles: ["HR", "ADMIN"],
+  },
+  {
     title: "Restricted Holidays",
     href: "/calendars/restricted-holidays",
     icon: CalendarCheck,
@@ -101,9 +115,9 @@ const navItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: "WFH",
+    title: "WFH REQUEST",
     href: "/wfh",
-    icon: Clock,
+    icon: HouseIcon,
     roles: ["HR", "MANAGER"],
   },
   {
@@ -121,7 +135,7 @@ const navItems: NavItem[] = [
   {
     title: "Reports",
     href: "/reports",
-    icon: BarChart3,
+    icon: BarChart2,
   },
 ]
 

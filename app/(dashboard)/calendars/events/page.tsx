@@ -6,7 +6,7 @@ import { api, ApiClientError, apiUpload } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { RequireRole } from "@/components/auth/RequireRole"
 import { DebugPanel } from "@/components/debug/DebugPanel"
-import { Holiday, HolidayCreate, HolidayUpdate } from "@/types/models"
+import { CompanyEvent, CompanyEventCreate, CompanyEventUpdate } from "@/types/models"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -46,77 +46,67 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Edit, Trash2, Loader2, Search } from "lucide-react"
+import { Plus, Edit, Trash2, Loader2, Search, Image as ImageIcon, MapPin } from "lucide-react"
 import { format } from "date-fns"
 import { Textarea } from "@/components/ui/textarea"
 
-export default function HolidaysPage() {
+export default function CompanyEventsPage() {
   const { user } = useAuthStore()
   const { toast } = useToast()
-  const [holidays, setHolidays] = useState<Holiday[]>([])
+  const [events, setEvents] = useState<CompanyEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterYear, setFilterYear] = useState<number | "ALL">(
-    new Date().getFullYear()
-  )
+  const [filterYear, setFilterYear] = useState<number | "ALL">(new Date().getFullYear())
   const [filterActive, setFilterActive] = useState<boolean | "ALL">("ALL")
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [selectedHoliday, setSelectedHoliday] = useState<Holiday | null>(null)
-  const [formData, setFormData] = useState<HolidayCreate>({
+  const [selectedEvent, setSelectedEvent] = useState<CompanyEvent | null>(null)
+  const [formData, setFormData] = useState<CompanyEventCreate>({
     year: new Date().getFullYear(),
     date: new Date().toISOString().split("T")[0],
     name: "",
-    active: true,
     description: "",
+    image_url: "",
+    location: "",
+    active: true,
   })
   const [submitting, setSubmitting] = useState(false)
   const [apiError, setApiError] = useState<string>("")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string>("")
 
   useEffect(() => {
     if (user?.role === "ADMIN") {
-      fetchHolidays()
+      fetchEvents()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, filterYear])
+  }, [user, filterYear, filterActive])
 
-  const fetchHolidays = async () => {
+  const fetchEvents = async () => {
     setLoading(true)
     setApiError("")
     try {
-      const yearParam =
-        filterYear !== "ALL" ? `?year=${filterYear}` : ""
-      const data = await api.get<Holiday[]>(`/api/v1/holidays${yearParam}`)
-      setHolidays(data || [])
-
-      if (user && data && data.length === 0) {
-        // No holidays returned by API. Check backend endpoint or filters.
-      }
+      const params = []
+      if (filterYear !== "ALL") params.push(`year=${filterYear}`)
+      if (filterActive !== "ALL") params.push(`active=${filterActive}`)
+      const query = params.length ? `?${params.join("&")}` : ""
+      const data = await api.get<CompanyEvent[]>(`/api/v1/events${query}`)
+      setEvents(data || [])
     } catch (err) {
       if (err instanceof ApiClientError) {
-        let errorMsg
-        if (err.status === 403) {
-          errorMsg = "Admin access required to view holidays"
-        } else {
-          errorMsg = err.data.detail || "Failed to fetch holidays"
-        }
+        const errorMsg =
+          err.status === 403
+            ? "Admin access required to view company events"
+            : err.data.detail || "Failed to fetch company events"
         setApiError(errorMsg)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: errorMsg,
-        })
+        toast({ variant: "destructive", title: "Error", description: errorMsg })
       } else {
         const errorMsg = "An unexpected error occurred"
         setApiError(errorMsg)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: errorMsg,
-        })
+        toast({ variant: "destructive", title: "Error", description: errorMsg })
       }
     } finally {
       setLoading(false)
@@ -128,81 +118,89 @@ export default function HolidaysPage() {
       year: filterYear !== "ALL" ? filterYear : new Date().getFullYear(),
       date: new Date().toISOString().split("T")[0],
       name: "",
-      active: true,
       description: "",
+      image_url: "",
+      location: "",
+      active: true,
     })
-    setSelectedHoliday(null)
+    setSelectedEvent(null)
     setImageFile(null)
     setImagePreview(null)
+    setUploadError("")
     setCreateOpen(true)
   }
 
-  const handleEdit = (holiday: Holiday) => {
-    setSelectedHoliday(holiday)
+  const handleEdit = (ev: CompanyEvent) => {
+    setSelectedEvent(ev)
     setFormData({
-      year: holiday.year,
-      date: holiday.date.split("T")[0],
-      name: holiday.name,
-      active: holiday.active,
-      description: holiday.description || "",
+      year: ev.year,
+      date: ev.date.split("T")[0],
+      name: ev.name,
+      description: ev.description ?? "",
+      image_url: ev.image_url ?? "",
+      location: ev.location ?? "",
+      active: ev.active,
     })
     setImageFile(null)
-    setImagePreview(holiday.image_url ?? null)
+    setImagePreview(ev.image_url ?? null)
+    setUploadError("")
     setEditOpen(true)
   }
 
-  const handleDelete = (holiday: Holiday) => {
-    setSelectedHoliday(holiday)
+  const handleDelete = (ev: CompanyEvent) => {
+    setSelectedEvent(ev)
     setDeleteOpen(true)
   }
 
   const handleSubmitCreate = async () => {
     if (!formData.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Holiday name is required",
-      })
+      toast({ variant: "destructive", title: "Validation Error", description: "Event name is required" })
       return
     }
     if (!formData.date) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Holiday date is required",
-      })
+      toast({ variant: "destructive", title: "Validation Error", description: "Event date is required" })
       return
     }
 
     setSubmitting(true)
     try {
-      const created = await api.post<Holiday>("/api/v1/holidays", formData)
-      if (created && created.id && imageFile) {
-        const fd = new FormData()
-        fd.append("file", imageFile)
-        await apiUpload<Holiday>(`/api/v1/holidays/${created.id}/image`, fd, "POST")
+      console.log("[Events] Creating event payload:", formData)
+      const created = await api.post<CompanyEvent>("/api/v1/events", formData)
+      if (created && imageFile) {
+        setUploading(true)
+        setUploadError("")
+        try {
+          const fd = new FormData()
+          fd.append("file", imageFile)
+          const uploaded = await apiUpload<CompanyEvent>(`/api/v1/events/${created.id}/image`, fd, "POST")
+          console.log("[Events] Upload response image_url:", uploaded?.image_url)
+          setFormData((prev) => ({ ...prev, image_url: uploaded?.image_url || prev.image_url }))
+        } catch (err) {
+          if (err instanceof ApiClientError) {
+            setUploadError(err.data.detail || "Failed to upload image")
+            toast({ variant: "destructive", title: "Upload Error", description: err.data.detail || "Failed to upload image" })
+          } else {
+            setUploadError("An unexpected error occurred during image upload")
+            toast({ variant: "destructive", title: "Upload Error", description: "An unexpected error occurred during image upload" })
+          }
+        } finally {
+          setUploading(false)
+        }
       }
-      toast({
-        title: "Success",
-        description: "Holiday created successfully",
-      })
+      toast({ title: "Success", description: "Event created successfully" })
       setCreateOpen(false)
       setImageFile(null)
       setImagePreview(null)
-      await fetchHolidays()
+      await fetchEvents()
     } catch (err) {
       if (err instanceof ApiClientError) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: err.data.detail || "Failed to create holiday",
+          description: err.data.detail || "Failed to create event",
         })
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred",
-        })
+        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred" })
       }
     } finally {
       setSubmitting(false)
@@ -210,55 +208,59 @@ export default function HolidaysPage() {
   }
 
   const handleSubmitEdit = async () => {
+    if (!selectedEvent) return
     if (!formData.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Holiday name is required",
-      })
+      toast({ variant: "destructive", title: "Validation Error", description: "Event name is required" })
       return
     }
 
-    if (!selectedHoliday) return
-
     setSubmitting(true)
     try {
-      const updateData: HolidayUpdate = {
+      const updateData: CompanyEventUpdate = {
         name: formData.name,
         active: formData.active,
         description: formData.description,
+        image_url: formData.image_url,
+        location: formData.location,
       }
-      const updated = await api.patch<Holiday>(
-        `/api/v1/holidays/${selectedHoliday.id}`,
-        updateData
-      )
+      console.log("[Events] Updating event payload:", updateData)
+      const updated = await api.patch<CompanyEvent>(`/api/v1/events/${selectedEvent.id}`, updateData)
       if (updated && imageFile) {
-        const fd = new FormData()
-        fd.append("file", imageFile)
-        await apiUpload<Holiday>(`/api/v1/holidays/${selectedHoliday.id}/image`, fd, "POST")
+        setUploading(true)
+        setUploadError("")
+        try {
+          const fd = new FormData()
+          fd.append("file", imageFile)
+          const uploaded = await apiUpload<CompanyEvent>(`/api/v1/events/${selectedEvent.id}/image`, fd, "POST")
+          console.log("[Events] Upload response image_url:", uploaded?.image_url)
+          setFormData((prev) => ({ ...prev, image_url: uploaded?.image_url || prev.image_url }))
+          setImagePreview(uploaded?.image_url ?? imagePreview)
+        } catch (err) {
+          if (err instanceof ApiClientError) {
+            setUploadError(err.data.detail || "Failed to upload image")
+            toast({ variant: "destructive", title: "Upload Error", description: err.data.detail || "Failed to upload image" })
+          } else {
+            setUploadError("An unexpected error occurred during image upload")
+            toast({ variant: "destructive", title: "Upload Error", description: "An unexpected error occurred during image upload" })
+          }
+        } finally {
+          setUploading(false)
+        }
       }
-      toast({
-        title: "Success",
-        description: "Holiday updated successfully",
-      })
+      toast({ title: "Success", description: "Event updated successfully" })
       setEditOpen(false)
-      setSelectedHoliday(null)
+      setSelectedEvent(null)
       setImageFile(null)
-      setImagePreview(null)
-      await fetchHolidays()
+      await fetchEvents()
     } catch (err) {
       if (err instanceof ApiClientError) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: err.data.detail || "Failed to update holiday",
+          description: err.data.detail || "Failed to update event",
         })
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred",
-        })
+        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred" })
       }
     } finally {
       setSubmitting(false)
@@ -266,51 +268,38 @@ export default function HolidaysPage() {
   }
 
   const handleConfirmDelete = async () => {
-    if (!selectedHoliday) return
-
+    if (!selectedEvent) return
     setSubmitting(true)
     try {
-      await api.patch<Holiday>(`/api/v1/holidays/${selectedHoliday.id}`, {
-        active: false,
-      })
-      toast({
-        title: "Success",
-        description: "Holiday deactivated successfully",
-      })
+      await api.delete(`/api/v1/events/${selectedEvent.id}`)
+      toast({ title: "Success", description: "Event deleted successfully" })
       setDeleteOpen(false)
-      setSelectedHoliday(null)
-      await fetchHolidays()
+      setSelectedEvent(null)
+      await fetchEvents()
     } catch (err) {
       if (err instanceof ApiClientError) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: err.data.detail || "Failed to deactivate holiday",
+          description: err.data.detail || "Failed to delete event",
         })
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred",
-        })
+        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred" })
       }
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Filter holidays
-  const filteredHolidays = holidays.filter((holiday) => {
+  const filteredEvents = events.filter((ev) => {
     const matchesSearch =
-      holiday.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      holiday.date.includes(searchQuery)
-    const matchesActive =
-      filterActive === "ALL" || holiday.active === filterActive
-
+      ev.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ev.date.includes(searchQuery) ||
+      (ev.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesActive = filterActive === "ALL" || ev.active === filterActive
     return matchesSearch && matchesActive
   })
 
-  // Generate year options (current year ± 2)
   const currentYear = new Date().getFullYear()
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 
@@ -319,21 +308,20 @@ export default function HolidaysPage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Holidays</h1>
-            <p className="text-muted-foreground">Manage holidays calendar</p>
+            <h1 className="text-3xl font-bold mb-2">Company Events</h1>
+            <p className="text-muted-foreground">Manage company events and celebrations</p>
           </div>
           <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Holiday
+            Create Event
           </Button>
         </div>
 
-        {/* Search and Filters */}
         <div className="mb-4 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or date..."
+              placeholder="Search by name, date, or location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -341,14 +329,10 @@ export default function HolidaysPage() {
           </div>
           <div className="flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[150px]">
-              <Label className="text-xs text-muted-foreground mb-1 block">
-                Year
-              </Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">Year</Label>
               <Select
                 value={filterYear.toString()}
-                onValueChange={(value) =>
-                  setFilterYear(value === "ALL" ? "ALL" : parseInt(value))
-                }
+                onValueChange={(value) => setFilterYear(value === "ALL" ? "ALL" : parseInt(value))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -364,14 +348,10 @@ export default function HolidaysPage() {
               </Select>
             </div>
             <div className="flex-1 min-w-[150px]">
-              <Label className="text-xs text-muted-foreground mb-1 block">
-                Status
-              </Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
               <Select
                 value={filterActive === "ALL" ? "ALL" : filterActive.toString()}
-                onValueChange={(value) =>
-                  setFilterActive(value === "ALL" ? "ALL" : value === "true")
-                }
+                onValueChange={(value) => setFilterActive(value === "ALL" ? "ALL" : value === "true")}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -386,7 +366,6 @@ export default function HolidaysPage() {
           </div>
         </div>
 
-        {/* API Error Banner */}
         {apiError && !loading && (
           <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
             <p className="text-sm text-destructive">
@@ -395,12 +374,10 @@ export default function HolidaysPage() {
           </div>
         )}
 
-        {/* Warning Banner if empty but authenticated */}
-        {!loading && !apiError && holidays.length === 0 && user && (
+        {!loading && !apiError && events.length === 0 && user && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-800">
-              <strong>Warning:</strong> No holidays returned by API. Check
-              backend endpoint or filters.
+              <strong>Warning:</strong> No events returned by API. Check backend endpoint or filters.
             </p>
           </div>
         )}
@@ -413,17 +390,15 @@ export default function HolidaysPage() {
               ))}
             </div>
           </div>
-        ) : filteredHolidays.length === 0 ? (
+        ) : filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[400px] text-center border rounded-lg p-12">
             <p className="text-lg text-muted-foreground mb-4">
-              {searchQuery || filterActive !== "ALL"
-                ? "No holidays match your filters"
-                : "No holidays found"}
+              {searchQuery || filterActive !== "ALL" ? "No events match your filters" : "No events found"}
             </p>
             {!searchQuery && filterActive === "ALL" && (
               <Button onClick={handleCreate}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create First Holiday
+                Create First Event
               </Button>
             )}
           </div>
@@ -435,45 +410,47 @@ export default function HolidaysPage() {
                   <TableHead>Year</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Image URL</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredHolidays.map((holiday) => (
-                  <TableRow key={holiday.id}>
-                    <TableCell className="font-medium">{holiday.year}</TableCell>
+                {filteredEvents.map((ev) => (
+                  <TableRow key={ev.id}>
+                    <TableCell className="font-medium">{ev.year}</TableCell>
                     <TableCell>
-                      {holiday.date
-                        ? format(new Date(holiday.date), "MMM dd, yyyy")
-                        : "-"}
+                      {ev.date ? format(new Date(ev.date), "MMM dd, yyyy") : "-"}
                     </TableCell>
-                    <TableCell>{holiday.name}</TableCell>
+                    <TableCell>{ev.name}</TableCell>
+                    <TableCell>{ev.location ?? "-"}</TableCell>
+                    <TableCell className="max-w-[240px] truncate">
+                      {ev.image_url ? (
+                        <a href={ev.image_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                          {ev.image_url}
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={holiday.active ? "default" : "secondary"}
-                      >
-                        {holiday.active ? "Active" : "Inactive"}
+                      <Badge variant={ev.active ? "default" : "secondary"}>
+                        {ev.active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(ev)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEdit(holiday)}
+                          onClick={() => handleDelete(ev)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                        {holiday.active && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(holiday)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -493,6 +470,9 @@ export default function HolidaysPage() {
                 year: filterYear !== "ALL" ? filterYear : new Date().getFullYear(),
                 date: new Date().toISOString().split("T")[0],
                 name: "",
+                description: "",
+                image_url: "",
+                location: "",
                 active: true,
               })
             }
@@ -500,10 +480,8 @@ export default function HolidaysPage() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Holiday</DialogTitle>
-              <DialogDescription>
-                Add a new holiday to the calendar.
-              </DialogDescription>
+              <DialogTitle>Create Event</DialogTitle>
+              <DialogDescription>Add a new company event.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -531,9 +509,7 @@ export default function HolidaysPage() {
                     id="create-date"
                     type="date"
                     value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     required
                     disabled={submitting}
                   />
@@ -544,10 +520,8 @@ export default function HolidaysPage() {
                 <Input
                   id="create-name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="e.g., Republic Day"
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Annual Day"
                   required
                   disabled={submitting}
                 />
@@ -558,15 +532,49 @@ export default function HolidaysPage() {
                   id="create-description"
                   value={formData.description || ""}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Optional notes about this holiday"
+                  placeholder="Optional description for this event"
                   rows={3}
                   disabled={submitting}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="create-image-url">
+                    Image URL <span className="text-xs text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="create-image-url"
+                      value={formData.image_url || ""}
+                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                      placeholder="https://example.com/event.jpg"
+                      className="pl-10"
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-location">
+                    Location <span className="text-xs text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="create-location"
+                      value={formData.location || ""}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="e.g., HQ Auditorium"
+                      className="pl-10"
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="create-image">Holiday Image (optional)</Label>
+                <Label htmlFor="create-image-file">Upload Image (optional)</Label>
                 <Input
-                  id="create-image"
+                  id="create-image-file"
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
@@ -574,34 +582,37 @@ export default function HolidaysPage() {
                     setImageFile(f)
                     setImagePreview(f ? URL.createObjectURL(f) : null)
                   }}
-                  disabled={submitting}
+                  disabled={submitting || uploading}
                 />
-                {imagePreview && (
+                {(imagePreview || formData.image_url) && (
                   <img
-                    src={imagePreview}
+                    src={imagePreview || formData.image_url || ""}
                     alt="Preview"
                     className="mt-2 h-32 w-32 object-cover rounded-md border"
                   />
+                )}
+                {uploading && (
+                  <div className="text-sm text-muted-foreground flex items-center">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading image...
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="text-sm text-destructive">{uploadError}</div>
                 )}
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="create-active"
                   checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
+                  onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
                   disabled={submitting}
                 />
                 <Label htmlFor="create-active">Active</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setCreateOpen(false)}
-                disabled={submitting}
-              >
+              <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>
                 Cancel
               </Button>
               <Button onClick={handleSubmitCreate} disabled={submitting}>
@@ -624,16 +635,14 @@ export default function HolidaysPage() {
           onOpenChange={(open) => {
             setEditOpen(open)
             if (!open) {
-              setSelectedHoliday(null)
+              setSelectedEvent(null)
             }
           }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Holiday</DialogTitle>
-              <DialogDescription>
-                Update holiday information.
-              </DialogDescription>
+              <DialogTitle>Edit Event</DialogTitle>
+              <DialogDescription>Update event information.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -641,9 +650,7 @@ export default function HolidaysPage() {
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                   disabled={submitting}
                 />
@@ -654,50 +661,87 @@ export default function HolidaysPage() {
                   id="edit-description"
                   value={formData.description || ""}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Optional notes about this holiday"
+                  placeholder="Optional description for this event"
                   rows={3}
                   disabled={submitting}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-image-url">
+                    Image URL <span className="text-xs text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="edit-image-url"
+                      value={formData.image_url || ""}
+                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                      placeholder="https://example.com/event.jpg"
+                      className="pl-10"
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-location">
+                    Location <span className="text-xs text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="edit-location"
+                      value={formData.location || ""}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="e.g., HQ Auditorium"
+                      className="pl-10"
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-image">Holiday Image (optional)</Label>
+                <Label htmlFor="edit-image-file">Upload Image (optional)</Label>
                 <Input
-                  id="edit-image"
+                  id="edit-image-file"
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null
                     setImageFile(f)
-                    setImagePreview(f ? URL.createObjectURL(f) : (selectedHoliday?.image_url ?? null))
+                    setImagePreview(f ? URL.createObjectURL(f) : (selectedEvent?.image_url ?? null))
                   }}
-                  disabled={submitting}
+                  disabled={submitting || uploading}
                 />
-                {(imagePreview || selectedHoliday?.image_url) && (
+                {(imagePreview || selectedEvent?.image_url || formData.image_url) && (
                   <img
-                    src={imagePreview || (selectedHoliday?.image_url ?? "")}
+                    src={imagePreview || selectedEvent?.image_url || formData.image_url || ""}
                     alt="Current"
                     className="mt-2 h-32 w-32 object-cover rounded-md border"
                   />
+                )}
+                {uploading && (
+                  <div className="text-sm text-muted-foreground flex items-center">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading image...
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="text-sm text-destructive">{uploadError}</div>
                 )}
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="edit-active"
                   checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
+                  onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
                   disabled={submitting}
                 />
                 <Label htmlFor="edit-active">Active</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setEditOpen(false)}
-                disabled={submitting}
-              >
+              <Button variant="outline" onClick={() => setEditOpen(false)} disabled={submitting}>
                 Cancel
               </Button>
               <Button onClick={handleSubmitEdit} disabled={submitting}>
@@ -720,17 +764,15 @@ export default function HolidaysPage() {
           onOpenChange={(open) => {
             setDeleteOpen(open)
             if (!open) {
-              setSelectedHoliday(null)
+              setSelectedEvent(null)
             }
           }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Deactivate Holiday</AlertDialogTitle>
+              <AlertDialogTitle>Delete Event</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to deactivate{" "}
-                <strong>{selectedHoliday?.name}</strong>? This will mark the
-                holiday as inactive.
+                Are you sure you want to delete <strong>{selectedEvent?.name}</strong>? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -743,17 +785,16 @@ export default function HolidaysPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Deactivating...
+                    Deleting...
                   </>
                 ) : (
-                  "Deactivate"
+                  "Delete"
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Debug Panel */}
         <DebugPanel />
       </div>
     </RequireRole>

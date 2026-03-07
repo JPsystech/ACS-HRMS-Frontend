@@ -21,6 +21,7 @@ const routePermissions: Record<string, string[] | undefined> = {
   "/wfh": ["HR", "MANAGER"],
   "/accrual": ["HR", "ADMIN"],
   "/policy": ["HR", "ADMIN"],
+  "/calendars/events": ["HR", "ADMIN"],
 }
 
 export default function ProtectedLayout({

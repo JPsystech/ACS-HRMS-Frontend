@@ -35,6 +35,40 @@ import { Loader2, FileDown, FileSpreadsheet, AlertCircle } from "lucide-react"
 type EmployeeOption = { id: number; emp_code: string; name: string }
 type DepartmentOption = { id: number; name: string }
 
+// Format helpers for IST conversion in preview table
+function ensureIsoHasTZ(s: string): string {
+  if (!s) return s
+  const hasOffset = /[+-]\d{2}:\d{2}$/.test(s) || s.endsWith("Z")
+  return hasOffset ? s : `${s}Z`
+}
+function formatIstDateTime(iso: string): string {
+  if (!iso) return "-"
+  const d = new Date(ensureIsoHasTZ(iso))
+  if (isNaN(d.getTime())) return "-"
+  const fmt = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+  return fmt.format(d).replace(",", "")
+}
+function formatIstTime(iso: string): string {
+  if (!iso) return "-"
+  const d = new Date(ensureIsoHasTZ(iso))
+  if (isNaN(d.getTime())) return "-"
+  const fmt = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+  return fmt.format(d)
+}
+
 function toYYYYMMDD(d: Date): string {
   return d.toLocaleDateString("en-CA")
 }
@@ -208,7 +242,7 @@ export default function ReportsPage() {
           throw new ApiClientError(res.status, err as { detail: string })
         }
         const text = await res.text()
-        const parsed = parseCsv(text)
+        let parsed = parseCsv(text)
         if (parsed.length === 0) {
           // No header, no rows
           setPreviewRows([["No data for selected period"]])
@@ -219,9 +253,27 @@ export default function ReportsPage() {
           // Header + data rows
           if (reportType === "leaves") {
             // Show all rows for Leaves report (role-scoped by backend)
+            // No time fields to reformat for leaves preview today
             setPreviewRows(parsed)
           } else {
-            // For other reports, show first N rows to keep preview snappy
+            // For other reports (attendance/compoff), reformat known timestamp columns for readability
+            const headers = parsed[0] ?? []
+            const inIdx = headers.findIndex((h) => h.toLowerCase() === "in_time")
+            const outIdx = headers.findIndex((h) => h.toLowerCase() === "out_time")
+            const punchDateIdx = headers.findIndex((h) => h.toLowerCase() === "punch_date")
+            const withDate = punchDateIdx === -1
+            const rows = parsed.slice(1).map((row) => {
+              const next = [...row]
+              if (inIdx >= 0 && inIdx < next.length) {
+                next[inIdx] = withDate ? formatIstDateTime(next[inIdx]) : formatIstTime(next[inIdx])
+              }
+              if (outIdx >= 0 && outIdx < next.length) {
+                next[outIdx] = next[outIdx] ? (withDate ? formatIstDateTime(next[outIdx]) : formatIstTime(next[outIdx])) : "-"
+              }
+              return next
+            })
+            parsed = [headers, ...rows]
+            // Show first N rows to keep preview snappy
             setPreviewRows(parsed.slice(0, PREVIEW_ROWS + 1))
           }
         }
@@ -581,13 +633,28 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previewRows.slice(1).map((row, ri) => (
-                    <TableRow key={ri}>
-                      {row.map((cell, ci) => (
-                        <TableCell key={ci} className="whitespace-nowrap max-w-[200px] truncate" title={cell}>{cell}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    const headers = previewRows[0] || []
+                    const timeCols = new Set(
+                      headers
+                        .map((h, i) => ({ h: h.toLowerCase(), i }))
+                        .filter(({ h }) => h === "in_time" || h === "out_time")
+                        .map(({ i }) => i)
+                    )
+                    return previewRows.slice(1).map((row, ri) => (
+                      <TableRow key={ri}>
+                        {row.map((cell, ci) => {
+                          const isTime = timeCols.has(ci)
+                          const cls = isTime ? "whitespace-nowrap" : "whitespace-nowrap max-w-[200px] truncate"
+                          return (
+                            <TableCell key={ci} className={cls} title={cell}>
+                              {cell || (isTime ? "-" : "")}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    ))
+                  })()}
                 </TableBody>
               </Table>
             ) : null}

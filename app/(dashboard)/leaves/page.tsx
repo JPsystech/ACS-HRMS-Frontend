@@ -12,7 +12,7 @@ import {
   Employee,
   ApprovalActionRequest,
   RejectActionRequest,
-  CancelLeaveRequest,
+  CancelActionRequest,
 } from "@/types/models"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -102,7 +102,6 @@ export default function LeavesPage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null)
   const [remarks, setRemarks] = useState("")
-  const [recredit, setRecredit] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [apiError, setApiError] = useState<string>("")
 
@@ -240,7 +239,6 @@ export default function LeavesPage() {
   const handleCancel = (leave: LeaveRequest) => {
     setSelectedLeave(leave)
     setRemarks("")
-    setRecredit(true)
     setCancelOpen(true)
   }
 
@@ -349,17 +347,19 @@ export default function LeavesPage() {
 
   const handleSubmitCancel = async () => {
     if (!selectedLeave) return
+    if (!remarks.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Remark is required to cancel",
+      })
+      return
+    }
 
     setSubmitting(true)
     try {
-      const data: CancelLeaveRequest = {
-        recredit: recredit,
-        remarks: remarks || undefined,
-      }
-      await api.post(
-        `/api/v1/hr/actions/cancel-leave/${selectedLeave.id}`,
-        data
-      )
+      const data: CancelActionRequest = { remark: remarks.trim() }
+      await api.post<LeaveRequest>(`/api/v1/leaves/${selectedLeave.id}/cancel`, data)
       toast({
         title: "Success",
         description: "Leave cancelled successfully",
@@ -519,9 +519,14 @@ export default function LeavesPage() {
   }
 
   const canCancel = (leave: LeaveRequest) => {
-    if (user?.role !== "HR") return false
+    if (activeTab !== "approved") return false
     if (leave.status !== "APPROVED") return false
-    return leave.leave_type === "CL" || leave.leave_type === "PL"
+    const role = user?.role
+    if (!(role === "ADMIN" || role === "MD" || role === "VP" || role === "MANAGER")) return false
+    const today = new Date()
+    const from = new Date(leave.from_date)
+    // Only allow if today < from_date
+    return today < from
   }
 
   return (
@@ -736,6 +741,8 @@ export default function LeavesPage() {
                     <TableHead>Leave Type</TableHead>
                     <TableHead>From</TableHead>
                     <TableHead>To</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Session</TableHead>
                     <TableHead>Days</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Status</TableHead>
@@ -758,6 +765,14 @@ export default function LeavesPage() {
                   </TableCell>
                   <TableCell>
                     {format(new Date(leave.to_date), "MMM dd, yyyy")}
+                  </TableCell>
+                  <TableCell>
+                    {leave.duration === "HALF_DAY" ? "Half Day" : "Full Day"}
+                  </TableCell>
+                  <TableCell>
+                    {leave.duration === "HALF_DAY"
+                      ? (leave.half_day_session === "SECOND_HALF" ? "Second Half" : "First Half")
+                      : "-"}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="font-semibold">
@@ -839,6 +854,8 @@ export default function LeavesPage() {
                       <div className="flex justify-between"><span className="text-muted-foreground">Department</span><span>{emp.department}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">From</span><span>{format(new Date(leave.from_date), "MMM dd, yyyy")}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">To</span><span>{format(new Date(leave.to_date), "MMM dd, yyyy")}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Duration</span><span>{leave.duration === "HALF_DAY" ? "Half Day" : "Full Day"}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Session</span><span>{leave.duration === "HALF_DAY" ? (leave.half_day_session === "SECOND_HALF" ? "Second Half" : "First Half") : "-"}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Days</span><span>{leave.computed_days}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Reason</span><span className="truncate max-w-[60%] text-right">{leave.reason || "-"}</span></div>
                       <div className="flex justify-between items-center">
@@ -875,6 +892,22 @@ export default function LeavesPage() {
               Approve leave request #{selectedLeave?.id}
             </DialogDescription>
           </DialogHeader>
+          <div className="grid gap-2 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Duration</span>
+              <span className="text-foreground">
+                {selectedLeave?.duration === "HALF_DAY" ? "Half Day" : "Full Day"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Session</span>
+              <span className="text-foreground">
+                {selectedLeave?.duration === "HALF_DAY"
+                  ? (selectedLeave?.half_day_session === "SECOND_HALF" ? "Second Half" : "First Half")
+                  : "-"}
+              </span>
+            </div>
+          </div>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="approve-remarks">Remarks (Optional)</Label>
@@ -969,36 +1002,22 @@ export default function LeavesPage() {
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Approved Leave</DialogTitle>
+            <DialogTitle>Cancel Leave</DialogTitle>
             <DialogDescription>
-              Cancel approved leave request #{selectedLeave?.id} (Company
-              Emergency - HR Only)
+              This will cancel the approved leave and restore leave balance.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="cancel-remarks">Remarks (Optional)</Label>
+              <Label htmlFor="cancel-remarks">Remark *</Label>
               <Textarea
                 id="cancel-remarks"
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Enter cancellation remarks..."
+                placeholder="Enter cancellation remark..."
                 disabled={submitting}
                 rows={3}
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="recredit"
-                checked={recredit}
-                onChange={(e) => setRecredit(e.target.checked)}
-                title="Re-credit leave balance"
-                aria-label="Re-credit leave balance"
-                className="h-4 w-4"
-                disabled={submitting}
-              />
-              <Label htmlFor="recredit">Re-credit leave balance</Label>
             </div>
           </div>
           <DialogFooter>
@@ -1010,20 +1029,20 @@ export default function LeavesPage() {
               }}
               disabled={submitting}
             >
-              Cancel
+              Close
             </Button>
             <Button
               onClick={handleSubmitCancel}
-              disabled={submitting}
+              disabled={submitting || !remarks.trim()}
               variant="destructive"
             >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Cancelling...
+                  Confirming...
                 </>
               ) : (
-                "Cancel Leave"
+                "Confirm Cancel"
               )}
             </Button>
           </DialogFooter>

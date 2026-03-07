@@ -93,6 +93,9 @@ export type Holiday = {
   date: string
   name: string
   active: boolean
+  description?: string | null
+  image_url?: string | null
+  image_key?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -102,11 +105,13 @@ export type HolidayCreate = {
   date: string
   name: string
   active: boolean
+  description?: string
 }
 
 export type HolidayUpdate = {
   name?: string
   active?: boolean
+  description?: string
 }
 
 export type RestrictedHoliday = {
@@ -115,6 +120,9 @@ export type RestrictedHoliday = {
   date: string
   name: string
   active: boolean
+  description?: string | null
+  image_url?: string | null
+  image_key?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -124,11 +132,44 @@ export type RestrictedHolidayCreate = {
   date: string
   name: string
   active: boolean
+  description?: string
 }
 
 export type RestrictedHolidayUpdate = {
   name?: string
   active?: boolean
+  description?: string
+}
+
+export type CompanyEvent = {
+  id: number
+  year: number
+  date: string
+  name: string
+  description?: string | null
+  image_url?: string | null
+  location?: string | null
+  active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export type CompanyEventCreate = {
+  year: number
+  date: string
+  name: string
+  active: boolean
+  description?: string | null
+  image_url?: string | null
+  location?: string | null
+}
+
+export type CompanyEventUpdate = {
+  name?: string
+  active?: boolean
+  description?: string | null
+  image_url?: string | null
+  location?: string | null
 }
 
 export type LeaveType = "CL" | "PL" | "SL" | "RH" | "FL" | "COMPOFF" | "LWP"
@@ -151,6 +192,8 @@ export type LeaveRequest = {
   computed_days: number
   paid_days: number
   lwp_days: number
+  duration?: "FULL_DAY" | "HALF_DAY"
+  half_day_session?: "FIRST_HALF" | "SECOND_HALF" | null
   override_policy: boolean
   override_remark?: string | null
   auto_converted_to_lwp: boolean
@@ -196,6 +239,10 @@ export type RejectActionRequest = {
 export type CancelLeaveRequest = {
   recredit: boolean
   remarks?: string
+}
+
+export type CancelActionRequest = {
+  remark: string
 }
 
 export type CompoffRequestStatus = "PENDING" | "APPROVED" | "REJECTED"
@@ -321,6 +368,14 @@ export type AdminAttendanceSessionListResponse = {
 
 export type AdminSessionUpdateRequest = {
   punch_in_at?: string
+  punch_out_at?: string
+  status?: AttendanceSessionStatus
+  remarks?: string
+}
+
+export type AdminSessionCreateRequest = {
+  employee_id: number
+  punch_in_at: string
   punch_out_at?: string
   status?: AttendanceSessionStatus
   remarks?: string

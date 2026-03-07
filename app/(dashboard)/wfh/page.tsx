@@ -53,20 +53,28 @@ export default function WfhApprovalsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<RoleDefinition[]>([])
+  const [filters, setFilters] = useState<{ from?: string; to?: string; department_id?: number | undefined; employee_id?: number | undefined }>({})
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState<string>("")
   const [submittingId, setSubmittingId] = useState<number | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [selectedWfh, setSelectedWfh] = useState<WfhRequest | null>(null)
   const [rejectRemarks, setRejectRemarks] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"ALL" | WfhStatus>("PENDING")
+  const [statusFilter, setStatusFilter] = useState<"ALL" | WfhStatus>("ALL")
 
   useEffect(() => {
     if (user) {
       fetchLookups()
-      fetchPendingWfh()
+      fetchWfh()
     }
   }, [user])
+
+  // Auto-refresh when filters or status change
+  useEffect(() => {
+    if (!user) return
+    fetchWfh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, filters.department_id, filters.employee_id, filters.from, filters.to])
 
   const fetchLookups = async () => {
     try {
@@ -84,13 +92,17 @@ export default function WfhApprovalsPage() {
     }
   }
 
-  const fetchPendingWfh = async () => {
+  const fetchWfh = async () => {
     setLoading(true)
     setApiError("")
     try {
-      const res = await api.get<{ items?: WfhRequest[]; total?: number }>(
-        "/api/v1/wfh/pending"
-      )
+      const params = new URLSearchParams()
+      if (statusFilter !== "ALL") params.set("status", statusFilter)
+      if (filters.from) params.set("from", filters.from)
+      if (filters.to) params.set("to", filters.to)
+      if (filters.department_id != null) params.set("department_id", String(filters.department_id))
+      if (filters.employee_id != null) params.set("employee_id", String(filters.employee_id))
+      const res = await api.get<{ items?: WfhRequest[]; total?: number }>(`/api/v1/wfh/list${params.toString() ? `?${params.toString()}` : ""}`)
       const items = Array.isArray(res?.items) ? res.items : []
       setWfhRequests(items)
     } catch (err) {
@@ -131,10 +143,21 @@ export default function WfhApprovalsPage() {
     }`
   }
 
-  const getDepartmentName = (departmentId?: number | null) => {
-    if (!departmentId) return "-"
-    const dept = departments.find((d) => d.id === departmentId)
-    return dept?.name || "-"
+  const getDepartmentName = (departmentId?: number | null, employeeId?: number) => {
+    // Primary: use provided department_id from request if present
+    if (departmentId && typeof departmentId === "number") {
+      const dept = departments.find((d) => d.id === departmentId)
+      if (dept) return dept.name
+    }
+    // Fallback: derive from employee lookup
+    if (employeeId != null) {
+      const emp = employees.find((e) => e.id === employeeId)
+      if (emp?.department_id) {
+        const dept = departments.find((d) => d.id === emp.department_id)
+        if (dept) return dept.name
+      }
+    }
+    return "-"
   }
 
   const parseDateSafe = (value?: string | null): Date | null => {
@@ -193,7 +216,7 @@ export default function WfhApprovalsPage() {
       })
       // Notify other dashboards (e.g. WFH balances) to refresh
       window.dispatchEvent(new Event("wfh-action-done"))
-      await fetchPendingWfh()
+      await fetchWfh()
     } catch (err) {
       if (err instanceof ApiClientError) {
         if (err.status === 403) {
@@ -244,7 +267,7 @@ export default function WfhApprovalsPage() {
       setSelectedWfh(null)
       setRejectRemarks("")
       window.dispatchEvent(new Event("wfh-action-done"))
-      await fetchPendingWfh()
+      await fetchWfh()
     } catch (err) {
       if (err instanceof ApiClientError) {
         if (err.status === 403) {
@@ -285,15 +308,77 @@ export default function WfhApprovalsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+              {/* Department filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Department</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={filters.department_id != null ? String(filters.department_id) : "all"}
+                  onChange={(e) => {
+                    const v = e.target.value === "all" ? undefined : parseInt(e.target.value, 10)
+                    // Reset employee filter when department changes
+                    setFilters((f) => ({ ...f, department_id: v, employee_id: undefined }))
+                  }}
+                  disabled={loading}
+                >
+                  <option value="all">All</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Employee filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Employee</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm max-w-[220px]"
+                  value={filters.employee_id != null ? String(filters.employee_id) : "all"}
+                  onChange={(e) => {
+                    const v = e.target.value === "all" ? undefined : parseInt(e.target.value, 10)
+                    setFilters((f) => ({ ...f, employee_id: v }))
+                  }}
+                  disabled={loading}
+                >
+                  <option value="all">All</option>
+                  {employees
+                    .filter((e) => (filters.department_id ? e.department_id === filters.department_id : true))
+                    .map((e) => (
+                      <option key={e.id} value={e.id}>{e.name} ({e.emp_code})</option>
+                    ))}
+                </select>
+              </div>
+              {/* Date range */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">From</span>
+                <input
+                  type="date"
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={filters.from ?? ""}
+                  onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">To</span>
+                <input
+                  type="date"
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={filters.to ?? ""}
+                  onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Status</span>
               {/* Simple status filter */}
               <select
                 className="h-9 rounded-md border border-input bg-background px-2 text-sm"
                 value={statusFilter}
-                onChange={(e) =>
+                onChange={(e) => {
                   setStatusFilter(e.target.value as "ALL" | WfhStatus)
-                }
+                  // refresh list on filter change
+                  setTimeout(() => { fetchWfh() }, 0)
+                }}
                 disabled={loading}
               >
                 <option value="ALL">All</option>
@@ -306,7 +391,7 @@ export default function WfhApprovalsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchPendingWfh}
+              onClick={fetchWfh}
               disabled={loading}
             >
               {loading ? (
@@ -371,7 +456,7 @@ export default function WfhApprovalsPage() {
                         <TableCell className="font-medium">
                           {getEmployeeLabel(wfh.employee_id)}
                         </TableCell>
-                        <TableCell>{getDepartmentName(wfh.department_id)}</TableCell>
+                        <TableCell>{getDepartmentName(wfh.department_id, wfh.employee_id)}</TableCell>
                         <TableCell className="text-sm">
                           {(() => {
                             const emp = employees.find((e) => e.id === wfh.employee_id)

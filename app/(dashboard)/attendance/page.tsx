@@ -8,6 +8,7 @@ import {
   AdminAttendanceSessionDto,
   AdminSessionUpdateRequest,
   Employee,
+  Department,
   PunchGeo,
   Role,
 } from "@/types/models"
@@ -54,8 +55,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Clock, Edit, Loader2, MapPin, AlertTriangle } from "lucide-react"
-import { format, parseISO } from "date-fns"
+import { Clock, Edit, Loader2, MapPin, AlertTriangle, Plus } from "lucide-react"
+import { format, parseISO, subDays, startOfYear } from "date-fns"
 
 const ADMIN_ATTENDANCE_ROLES: Role[] = ["HR", "ADMIN"]
 
@@ -180,6 +181,7 @@ export default function AttendancePage() {
   const { toast } = useToast()
   const [sessions, setSessions] = useState<AdminAttendanceSessionDto[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<string>("today")
   const [filters, setFilters] = useState({
@@ -192,6 +194,8 @@ export default function AttendancePage() {
   })
   const [editOpen, setEditOpen] = useState(false)
   const [forceCloseOpen, setForceCloseOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState<{ employee_id?: number; punch_in_at?: string; punch_out_at?: string; status?: AdminAttendanceSessionDto["status"]; remarks?: string }>({ status: "CLOSED" })
   const [selectedSession, setSelectedSession] = useState<AdminAttendanceSessionDto | null>(null)
   const [editForm, setEditForm] = useState<AdminSessionUpdateRequest>({})
   const [submitting, setSubmitting] = useState(false)
@@ -204,6 +208,11 @@ export default function AttendancePage() {
   useEffect(() => {
     if (user) {
       fetchEmployees()
+      if (user.role === "HR" || user.role === "ADMIN") {
+        fetchDepartments()
+      } else {
+        setDepartments([])
+      }
     }
   }, [user])
 
@@ -237,6 +246,15 @@ export default function AttendancePage() {
     }
   }
 
+  const fetchDepartments = async () => {
+    try {
+      const data = await api.get<Department[]>("/api/v1/departments")
+      setDepartments(Array.isArray(data) ? data : [])
+    } catch {
+      setDepartments([])
+    }
+  }
+
   const fetchSessions = async () => {
     setLoading(true)
     setApiError("")
@@ -252,16 +270,16 @@ export default function AttendancePage() {
         )
         setSessions(Array.isArray(data) ? data : [])
       } else if (activeTab === "missing") {
-        const params = new URLSearchParams()
-        params.append("status", "OPEN")
+        const from = filters.from_date || format(startOfYear(new Date()), "yyyy-MM-dd")
+        const to = filters.to_date || format(new Date(), "yyyy-MM-dd")
+        const params = new URLSearchParams({ from, to, status: filters.status || "OPEN" })
+        if (filters.employee_id != null) params.append("employee_id", String(filters.employee_id))
         if (filters.department_id != null) params.append("department_id", String(filters.department_id))
         if (filters.q.trim()) params.append("q", filters.q.trim())
-        const queryString = params.toString()
-        const data = await api.get<AdminAttendanceSessionDto[]>(
-          `/api/v1/admin/attendance/today${queryString ? `?${queryString}` : ""}`
+        const res = await api.get<{ items: AdminAttendanceSessionDto[]; total: number }>(
+          `/api/v1/admin/attendance?${params.toString()}`
         )
-        const openOnly = (Array.isArray(data) ? data : []).filter((s) => s.status === "OPEN")
-        setSessions(openOnly)
+        setSessions(res.items || [])
       } else {
         const from = filters.from_date || format(new Date(), "yyyy-MM-dd")
         const to = filters.to_date || format(new Date(), "yyyy-MM-dd")
@@ -307,6 +325,16 @@ export default function AttendancePage() {
       status: session.status,
       remarks: session.remarks ?? undefined,
     })
+    // Temporary debug log of modal initialization
+    // eslint-disable-next-line no-console
+    console.debug("[attendance/edit] open modal", {
+      sessionId: session.id,
+      api: { in: session.punch_in_at, out: session.punch_out_at },
+      initialForm: {
+        punch_in_at: session.punch_in_at ? format(parseISO(session.punch_in_at), "yyyy-MM-dd'T'HH:mm") : undefined,
+        punch_out_at: session.punch_out_at ? format(parseISO(session.punch_out_at), "yyyy-MM-dd'T'HH:mm") : undefined,
+      },
+    })
     setEditOpen(true)
   }
 
@@ -320,11 +348,37 @@ export default function AttendancePage() {
     setSubmitting(true)
     try {
       const body: AdminSessionUpdateRequest = {}
-      if (editForm.punch_in_at) body.punch_in_at = editForm.punch_in_at
-      if (editForm.punch_out_at) body.punch_out_at = editForm.punch_out_at
+      // Convert local datetime-local strings to ISO 8601 (UTC, Z) before sending
+      const toIsoUtc = (localDt: string) => {
+        // new Date('YYYY-MM-DDTHH:mm') is interpreted as local time by browsers
+        // .toISOString() serializes as UTC (Z)
+        const d = new Date(localDt)
+        return isNaN(d.getTime()) ? localDt : d.toISOString()
+      }
+      if (editForm.punch_in_at) body.punch_in_at = toIsoUtc(editForm.punch_in_at)
+      if (editForm.punch_out_at) body.punch_out_at = toIsoUtc(editForm.punch_out_at)
       if (editForm.status) body.status = editForm.status
       if (editForm.remarks !== undefined) body.remarks = editForm.remarks
-      await api.patch<AdminAttendanceSessionDto>(`/api/v1/admin/attendance/${selectedSession.id}`, body)
+      // Temporary debug logs
+      // eslint-disable-next-line no-console
+      console.debug("[attendance/edit] submit payload", {
+        sessionId: selectedSession.id,
+        selected: {
+          punch_in_at: editForm.punch_in_at,
+          punch_out_at: editForm.punch_out_at,
+        },
+        payload: body,
+      })
+      const updated = await api.patch<AdminAttendanceSessionDto>(`/api/v1/admin/attendance/${selectedSession.id}`, body)
+      // eslint-disable-next-line no-console
+      console.debug("[attendance/edit] response times", {
+        punch_in_at: updated?.punch_in_at,
+        punch_out_at: updated?.punch_out_at,
+        display: {
+          in: updated?.punch_in_at ? formatDateTimeIST(updated.punch_in_at) : null,
+          out: updated?.punch_out_at ? formatDateTimeIST(updated.punch_out_at) : null,
+        },
+      })
       toast({ title: "Success", description: "Attendance updated" })
       setEditOpen(false)
       setSelectedSession(null)
@@ -450,7 +504,7 @@ export default function AttendancePage() {
         </TabsList>
 
         {showAdminUi && (
-          <div className="mt-4 flex flex-wrap gap-4">
+          <div className="mt-4 flex flex-wrap gap-4 items-end">
             {activeTab !== "reports" && (
               <>
                 <div className="flex items-center gap-2">
@@ -471,7 +525,7 @@ export default function AttendancePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(user?.role === "HR" || user?.role === "ADMIN") && employees.length > 0 && (
+                {(user?.role === "HR" || user?.role === "ADMIN") && (
                   <div className="flex items-center gap-2">
                     <Label className="text-muted-foreground whitespace-nowrap">Department</Label>
                     <Select
@@ -485,14 +539,22 @@ export default function AttendancePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All departments</SelectItem>
-                        {Array.from(new Set(employees.map((e) => e.department_id).filter(Boolean))).map((deptId) => {
-                          const emp = employees.find((e) => e.department_id === deptId)
-                          return (
-                            <SelectItem key={deptId} value={String(deptId)}>
-                              {emp?.department_name ?? `Dept ${deptId}`}
-                            </SelectItem>
-                          )
-                        })}
+                        {departments.length > 0
+                          ? departments
+                              .filter((d) => d.active !== false)
+                              .map((d) => (
+                                <SelectItem key={d.id} value={String(d.id)}>
+                                  {d.name}
+                                </SelectItem>
+                              ))
+                          : Array.from(new Set(employees.map((e) => e.department_id).filter(Boolean))).map((deptId) => {
+                              const emp = employees.find((e) => e.department_id === deptId)
+                              return (
+                                <SelectItem key={deptId} value={String(deptId)}>
+                                  {emp?.department_name ?? `Dept ${deptId}`}
+                                </SelectItem>
+                              )
+                            })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -505,7 +567,27 @@ export default function AttendancePage() {
                     className="max-w-[200px]"
                   />
                 </div>
-              </>
+                {activeTab === "missing" && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Label>From</Label>
+                      <Input
+                        type="date"
+                        value={filters.from_date}
+                        onChange={(e) => setFilters((f) => ({ ...f, from_date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label>To</Label>
+                      <Input
+                        type="date"
+                        value={filters.to_date}
+                        onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
+                </>
             )}
             {activeTab === "reports" && (
               <>
@@ -567,6 +649,18 @@ export default function AttendancePage() {
                   </Select>
                 </div>
               </>
+            )}
+            {showAdminUi && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setCreateForm({ status: "CLOSED" })
+                  setCreateOpen(true)
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Add Session
+              </Button>
             )}
           </div>
         )}
@@ -670,6 +764,113 @@ export default function AttendancePage() {
             </Button>
             <Button onClick={handleSubmitEdit} disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create session</DialogTitle>
+            <DialogDescription>Add a session for a user who missed both punches.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Employee</Label>
+              <Select
+                value={createForm.employee_id != null ? String(createForm.employee_id) : "select"}
+                onValueChange={(v) => setCreateForm((f) => ({ ...f, employee_id: v === "select" ? undefined : parseInt(v, 10) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                      {e.name} ({e.emp_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Punch In</Label>
+              <Input
+                type="datetime-local"
+                value={createForm.punch_in_at ?? ""}
+                onChange={(e) => setCreateForm((f) => ({ ...f, punch_in_at: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Punch Out (optional)</Label>
+              <Input
+                type="datetime-local"
+                value={createForm.punch_out_at ?? ""}
+                onChange={(e) => setCreateForm((f) => ({ ...f, punch_out_at: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={createForm.status ?? "CLOSED"}
+                onValueChange={(v) => setCreateForm((f) => ({ ...f, status: v as AdminAttendanceSessionDto["status"] }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OPEN">Open</SelectItem>
+                  <SelectItem value="CLOSED">Closed</SelectItem>
+                  <SelectItem value="AUTO_CLOSED">Auto closed</SelectItem>
+                  <SelectItem value="SUSPICIOUS">Suspicious</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Remarks</Label>
+              <Textarea
+                value={createForm.remarks ?? ""}
+                onChange={(e) => setCreateForm((f) => ({ ...f, remarks: e.target.value }))}
+                placeholder="Optional remarks"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!createForm.employee_id || !createForm.punch_in_at) {
+                  toast({ variant: "destructive", title: "Missing fields", description: "Employee and Punch In are required" })
+                  return
+                }
+                const toIsoUtc = (localDt?: string) => {
+                  if (!localDt) return undefined
+                  const d = new Date(localDt)
+                  return isNaN(d.getTime()) ? localDt : d.toISOString()
+                }
+                const payload = {
+                  employee_id: createForm.employee_id,
+                  punch_in_at: toIsoUtc(createForm.punch_in_at)!,
+                  punch_out_at: toIsoUtc(createForm.punch_out_at),
+                  status: createForm.status,
+                  remarks: createForm.remarks?.trim() || undefined,
+                }
+                try {
+                  await api.post(`/api/v1/admin/attendance`, payload)
+                  toast({ title: "Success", description: "Session created" })
+                  setCreateOpen(false)
+                  fetchSessions()
+                } catch (err) {
+                  const msg = err instanceof ApiClientError ? err.data.detail || "Failed to create session" : "Failed to create session"
+                  toast({ variant: "destructive", title: "Error", description: msg })
+                }
+              }}
+              disabled={submitting}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>

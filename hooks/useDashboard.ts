@@ -59,11 +59,24 @@ export function useDashboard() {
         api.get<Employee[]>("/api/v1/employees?limit=1000"), // Fetch all employees for accurate counts
         api.get<LeaveListResponse>("/api/v1/leaves/pending"),
         api.get<Holiday[]>("/api/v1/calendars/holidays?active_only=true"),
-        api
-          .get<AttendanceListResponse>(
-            `/api/v1/attendance/list?from=${today}&to=${today}`
-          )
-          .catch(() => null), // Attendance might not be available
+        // Attendance sessions: use session-based endpoints instead of legacy list
+        (async () => {
+          try {
+            const role = user?.role
+            if (role === "HR" || role === "ADMIN" || role === "MD" || role === "VP") {
+              const res = await api.get<any[]>("/api/v1/admin/attendance/today")
+              return { total: Array.isArray(res) ? res.length : 0 }
+            } else if (role === "MANAGER") {
+              const res = await api.get<{ items: any[]; total: number }>("/api/v1/attendance/today-scope")
+              return { total: Array.isArray(res?.items) ? res.items.length : 0 }
+            } else {
+              const res = await api.get<any | null>("/api/v1/attendance/today")
+              return { total: res ? 1 : 0 }
+            }
+          } catch {
+            return null
+          }
+        })(),
       ])
 
       // Process employees
@@ -141,7 +154,7 @@ export function useDashboard() {
       // Process attendance
       let todayAttendanceCount = 0
       if (attendanceData.status === "fulfilled" && attendanceData.value) {
-        todayAttendanceCount = attendanceData.value.total || 0
+        todayAttendanceCount = (attendanceData.value as any).total || 0
       }
 
       const stats: DashboardStats = {

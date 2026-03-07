@@ -25,6 +25,12 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { useMemo, useEffect, useState } from "react"
 import { api } from "@/lib/api"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
@@ -38,6 +44,8 @@ export default function DashboardPage() {
   const [birthdaysToday, setBirthdaysToday] = useState<any[] | null>(null)
   const [upcomingCount, setUpcomingCount] = useState<number | null>(null)
   const [birthdayError, setBirthdayError] = useState<string | null>(null)
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<any[]>([])
+  const [upcomingOpen, setUpcomingOpen] = useState(false)
 
   // Refetch dashboard (pending leaves count, etc.) when a leave is approved/rejected/cancelled
   useEffect(() => {
@@ -73,6 +81,7 @@ export default function DashboardPage() {
         if (!mounted) return
         const items = Array.isArray(res) ? res : (res as any).items || []
         setUpcomingCount(items.length)
+        setUpcomingBirthdays(items)
       })
       .catch((e: any) => {
         console.error("Upcoming birthdays API error", e)
@@ -140,7 +149,12 @@ export default function DashboardPage() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent
+              className={upcomingCount ? "cursor-pointer hover:bg-muted/50 rounded-md" : ""}
+              onClick={() => {
+                if (upcomingCount && upcomingCount > 0) setUpcomingOpen(true)
+              }}
+            >
               <p className="text-sm text-muted-foreground">
                 {upcomingCount !== null ? "Upcoming birthdays over next 7 days" : "Will show number when API is available"}
               </p>
@@ -426,6 +440,35 @@ export default function DashboardPage() {
           description="Unable to load dashboard data. Please try refreshing the page."
         />
       )}
+      
+      <Dialog open={upcomingOpen} onOpenChange={setUpcomingOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Birthdays in next 7 days</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-2">
+            {upcomingBirthdays.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No upcoming birthdays.</p>
+            ) : (
+              <ul className="text-sm space-y-2">
+                {upcomingBirthdays.map((b, idx) => (
+                  <li key={`${b.employee_id ?? idx}-${b.date ?? idx}`} className="flex items-center justify-between border-b pb-2 last:border-b-0">
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {b.name ?? b.employee_name ?? `Employee #${b.employee_id}`}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {b.department ? `${b.department} • ` : ""}
+                        {b.date ? format(new Date(b.date), "EEE, MMM dd, yyyy") : ""}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   )
 }

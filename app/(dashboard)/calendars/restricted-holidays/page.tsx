@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useAuthStore } from "@/store/auth-store"
-import { api, ApiClientError } from "@/lib/api"
+import { api, ApiClientError, apiUpload } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { RequireRole } from "@/components/auth/RequireRole"
 import { DebugPanel } from "@/components/debug/DebugPanel"
@@ -77,6 +77,8 @@ export default function RestrictedHolidaysPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [apiError, setApiError] = useState<string>("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.role === "ADMIN") {
@@ -135,6 +137,8 @@ export default function RestrictedHolidaysPage() {
       active: true,
     })
     setSelectedRH(null)
+    setImageFile(null)
+    setImagePreview(null)
     setCreateOpen(true)
   }
 
@@ -145,7 +149,10 @@ export default function RestrictedHolidaysPage() {
       date: rh.date.split("T")[0],
       name: rh.name,
       active: rh.active,
+      description: rh.description ?? "",
     })
+    setImageFile(null)
+    setImagePreview(rh.image_url ?? null)
     setEditOpen(true)
   }
 
@@ -174,15 +181,22 @@ export default function RestrictedHolidaysPage() {
 
     setSubmitting(true)
     try {
-      await api.post<RestrictedHoliday>(
+      const created = await api.post<RestrictedHoliday>(
         "/api/v1/restricted_holidays",
         formData
       )
+      if (created && created.id && imageFile) {
+        const fd = new FormData()
+        fd.append("file", imageFile)
+        await apiUpload<RestrictedHoliday>(`/api/v1/restricted_holidays/${created.id}/image`, fd, "POST")
+      }
       toast({
         title: "Success",
         description: "Restricted holiday created successfully",
       })
       setCreateOpen(false)
+      setImageFile(null)
+      setImagePreview(null)
       await fetchRestrictedHolidays()
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -220,17 +234,25 @@ export default function RestrictedHolidaysPage() {
       const updateData: RestrictedHolidayUpdate = {
         name: formData.name,
         active: formData.active,
+        description: formData.description,
       }
-      await api.patch<RestrictedHoliday>(
+      const updated = await api.patch<RestrictedHoliday>(
         `/api/v1/restricted_holidays/${selectedRH.id}`,
         updateData
       )
+      if (updated && imageFile) {
+        const fd = new FormData()
+        fd.append("file", imageFile)
+        await apiUpload<RestrictedHoliday>(`/api/v1/restricted_holidays/${selectedRH.id}/image`, fd, "POST")
+      }
       toast({
         title: "Success",
         description: "Restricted holiday updated successfully",
       })
       setEditOpen(false)
       setSelectedRH(null)
+      setImageFile(null)
+      setImagePreview(null)
       await fetchRestrictedHolidays()
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -257,7 +279,7 @@ export default function RestrictedHolidaysPage() {
     setSubmitting(true)
     try {
       await api.patch<RestrictedHoliday>(
-        `/api/v1/restricted-holidays/${selectedRH.id}`,
+        `/api/v1/restricted_holidays/${selectedRH.id}`,
         { active: false }
       )
       toast({
@@ -536,6 +558,38 @@ export default function RestrictedHolidaysPage() {
                   disabled={submitting}
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="create-description">Description / Notes</Label>
+                <textarea
+                  id="create-description"
+                  className="border rounded-md p-2 min-h-[90px]"
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Optional notes about this restricted holiday"
+                  disabled={submitting}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="create-image">Image (optional)</Label>
+                <Input
+                  id="create-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null
+                    setImageFile(f)
+                    setImagePreview(f ? URL.createObjectURL(f) : null)
+                  }}
+                  disabled={submitting}
+                />
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="mt-2 h-32 w-32 object-cover rounded-md border"
+                  />
+                )}
+              </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="create-active"
@@ -599,6 +653,38 @@ export default function RestrictedHolidaysPage() {
                   required
                   disabled={submitting}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Description / Notes</Label>
+                <textarea
+                  id="edit-description"
+                  className="border rounded-md p-2 min-h-[90px]"
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Optional notes about this restricted holiday"
+                  disabled={submitting}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-image">Image (optional)</Label>
+                <Input
+                  id="edit-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null
+                    setImageFile(f)
+                    setImagePreview(f ? URL.createObjectURL(f) : (selectedRH?.image_url ?? null))
+                  }}
+                  disabled={submitting}
+                />
+                {(imagePreview || selectedRH?.image_url) && (
+                  <img
+                    src={imagePreview || (selectedRH?.image_url ?? "")}
+                    alt="Current"
+                    className="mt-2 h-32 w-32 object-cover rounded-md border"
+                  />
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <Switch

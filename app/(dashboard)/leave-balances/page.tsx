@@ -124,7 +124,8 @@ export default function LeaveBalancesPage() {
     setMigrationMessage(null)
     const params = new URLSearchParams({ year: String(year) })
     if (departmentId) params.set("department_id", departmentId)
-    if (employeeId) params.set("employee_id", employeeId)
+    const e = employeeId.trim()
+    if (e && /^\d+$/.test(e)) params.set("employee_id", e)
     api.get<{ year: number; items: AdminBalanceItem[]; total: number }>(
       `/api/v1/admin/leaves/balances?${params}`
     )
@@ -257,10 +258,19 @@ export default function LeaveBalancesPage() {
               <div className="space-y-2">
                 <Label>Employee ID</Label>
                 <Input
-                  placeholder="Optional"
+                  placeholder="ID or Code"
                   className="w-[120px]"
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEmployeeId(v)
+                    const t = v.trim()
+                    if (t && !/^\d+$/.test(t)) {
+                      setEmployeeSearch(t)
+                    }
+                  }}
+                  inputMode="numeric"
+                  pattern="\d*"
                 />
               </div>
               <div className="space-y-2">

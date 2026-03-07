@@ -383,6 +383,8 @@ export default function PendingApprovalsPage() {
                     <TableHead>Leave Type</TableHead>
                     <TableHead>From Date</TableHead>
                     <TableHead>To Date</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Session</TableHead>
                     <TableHead>Computed Days</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Applied At</TableHead>
@@ -402,6 +404,14 @@ export default function PendingApprovalsPage() {
                       </TableCell>
                       <TableCell>
                         {format(new Date(leave.to_date), "MMM dd, yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        {leave.duration === "HALF_DAY" ? "Half Day" : "Full Day"}
+                      </TableCell>
+                      <TableCell>
+                        {leave.duration === "HALF_DAY"
+                          ? (leave.half_day_session === "SECOND_HALF" ? "Second Half" : "First Half")
+                          : "-"}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-semibold">
@@ -460,6 +470,22 @@ export default function PendingApprovalsPage() {
               Approve leave request #{selectedLeave?.id}
             </DialogDescription>
           </DialogHeader>
+          <div className="grid gap-2 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Duration</span>
+              <span className="text-foreground">
+                {selectedLeave?.duration === "HALF_DAY" ? "Half Day" : "Full Day"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Session</span>
+              <span className="text-foreground">
+                {selectedLeave?.duration === "HALF_DAY"
+                  ? (selectedLeave?.half_day_session === "SECOND_HALF" ? "Second Half" : "First Half")
+                  : "-"}
+              </span>
+            </div>
+          </div>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="approve-remarks">Remarks (Optional)</Label>
