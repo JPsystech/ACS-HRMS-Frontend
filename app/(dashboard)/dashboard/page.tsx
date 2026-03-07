@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { StatCard } from "@/components/ui/stat-card"
+import { CheckCircle2 } from "lucide-react"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageContainer } from "@/components/ui/page-container"
 import { AnimatedTable, AnimatedTableRow, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/animated-table"
@@ -102,7 +103,15 @@ export default function DashboardPage() {
   return (
     <PageContainer
       title="Dashboard"
-      description={`Welcome back, ${user?.emp_code || "User"}! Here's what's happening today.`}
+      description={
+        <div className="flex flex-col gap-1">
+          <p>Welcome back, {user?.emp_code || "User"}! Here's what's happening today.</p>
+          <div className="flex items-center gap-1.5 text-green-600">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Normal Login</span>
+          </div>
+        </div>
+      }
     >
       <div className="mb-6 space-y-3">
         <h2 className="text-xl font-semibold">🎉 Culture & Birthdays</h2>

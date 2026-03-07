@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 interface PageContainerProps {
   children: ReactNode
   title?: string
-  description?: string
+  description?: ReactNode
   action?: ReactNode
   className?: string
 }
@@ -39,7 +39,7 @@ export function PageContainer({
           <div>
             {title && <h1 className="text-3xl font-bold tracking-tight">{title}</h1>}
             {description && (
-              <p className="text-muted-foreground mt-2">{description}</p>
+              <div className="text-muted-foreground mt-2">{description}</div>
             )}
           </div>
           {action && <div>{action}</div>}
