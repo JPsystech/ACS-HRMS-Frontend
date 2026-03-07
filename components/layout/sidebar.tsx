@@ -24,6 +24,7 @@ import {
   Layers,
   BarChart2,
   HouseIcon,
+  CheckCircle2,
 } from "lucide-react"
 
 import { Role } from "@/types/models"
@@ -282,7 +283,13 @@ export function Sidebar({ initialCollapsed = false, onNavigate }: SidebarProps) 
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-800/50">
+      <div className="p-4 border-t border-slate-800/50 space-y-3">
+        {!collapsed && user && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">Normal Login</span>
+          </div>
+        )}
         <AnimatePresence>
           {!collapsed && (
             <motion.p

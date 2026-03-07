@@ -11,6 +11,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { format, subDays } from "date-fns"
+import { Calendar as CalendarIcon, FilterX } from "lucide-react"
 
 type Correction = {
   id: number
@@ -32,6 +34,8 @@ export default function AttendanceCorrectionsPage() {
   const [items, setItems] = useState<Correction[]>([])
   const [loading, setLoading] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>("PENDING")
+  const [dateFrom, setDateFrom] = useState<string>("")
+  const [dateTo, setDateTo] = useState<string>("")
   const [selected, setSelected] = useState<Correction | null>(null)
   const [adminRemarks, setAdminRemarks] = useState("")
   const [dialogMode, setDialogMode] = useState<"approve" | "reject" | null>(null)
@@ -40,7 +44,12 @@ export default function AttendanceCorrectionsPage() {
   const fetchItems = async () => {
     setLoading(true)
     try {
-      const query = statusFilter && statusFilter !== "ALL" ? `?status_filter=${statusFilter}` : ""
+      const params = new URLSearchParams()
+      if (statusFilter && statusFilter !== "ALL") params.append("status_filter", statusFilter)
+      if (dateFrom) params.append("date_from", dateFrom)
+      if (dateTo) params.append("date_to", dateTo)
+      
+      const query = params.toString() ? `?${params.toString()}` : ""
       const data = await api.get<Correction[]>(`/api/v1/attendance-corrections${query}`)
       setItems(data || [])
     } catch (err) {
@@ -54,7 +63,7 @@ export default function AttendanceCorrectionsPage() {
   useEffect(() => {
     fetchItems()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter])
+  }, [statusFilter, dateFrom, dateTo])
 
   const handleAction = async () => {
     if (!selected || !dialogMode) return
@@ -83,8 +92,45 @@ export default function AttendanceCorrectionsPage() {
             <h1 className="text-3xl font-bold mb-2">Attendance Corrections</h1>
             <p className="text-muted-foreground">Review correction requests</p>
           </div>
-          <div className="flex gap-4">
-            <div className="min-w-[200px]">
+          <div className="flex gap-4 items-end">
+            <div className="min-w-[150px]">
+              <Label className="text-xs text-muted-foreground mb-1 block">From Date</Label>
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="pl-8"
+                />
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="min-w-[150px]">
+              <Label className="text-xs text-muted-foreground mb-1 block">To Date</Label>
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="pl-8"
+                />
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+            {(dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setDateFrom("")
+                  setDateTo("")
+                }}
+                title="Clear filters"
+              >
+                <FilterX className="h-4 w-4" />
+              </Button>
+            )}
+            <div className="min-w-[150px]">
               <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
               <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
