@@ -104,14 +104,14 @@ export default function DashboardPage() {
     <PageContainer
       title="Dashboard"
       description={
-        <div className="flex flex-col gap-1">
-          <p>Welcome back, {user?.emp_code || "User"}! Here's what's happening today.</p>
-          <div className="flex items-center gap-1.5 text-green-600">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Normal Login</span>
-          </div>
-        </div>
-      }
+         <div className="flex flex-col gap-1">
+           <p>Welcome back, {user?.emp_code || "User"}! Here&apos;s what&apos;s happening today.</p>
+           <div className="flex items-center gap-1.5 text-green-600">
+             <CheckCircle2 className="h-4 w-4" />
+             <span className="text-xs font-semibold uppercase tracking-wider">Normal Login</span>
+           </div>
+         </div>
+       }
     >
       <div className="mb-6 space-y-3">
         <h2 className="text-xl font-semibold">🎉 Culture & Birthdays</h2>
