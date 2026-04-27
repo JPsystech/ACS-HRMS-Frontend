@@ -94,6 +94,10 @@ async function downloadWithAuth(endpoint: string, filename: string): Promise<voi
   URL.revokeObjectURL(blobUrl)
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0")
+}
+
 function formatMonthYear(month: number, year: number): string {
   const date = new Date(year, Math.max(0, month - 1), 1)
   if (Number.isNaN(date.getTime())) return `${month}/${year}`
@@ -573,6 +577,7 @@ export default function PayrollRunDetailsPage({
                         <TableHead className="text-right">Earned Gross</TableHead>
                         <TableHead className="text-right">Deductions</TableHead>
                         <TableHead className="text-right">Net</TableHead>
+                        <TableHead className="text-right">Payslip</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -591,6 +596,23 @@ export default function PayrollRunDetailsPage({
                           </TableCell>
                           <TableCell className="text-right">
                             {formatMoney(item.net_payable)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!run}
+                              onClick={async () => {
+                                if (!run) return
+                                const y = run.year
+                                const m = run.month
+                                const endpoint = `/api/v1/payroll/payslip/${item.employee_id}?month=${y}-${pad2(m)}`
+                                const filename = `payslip_${item.employee_code}_${pad2(m)}_${y}.pdf`
+                                await downloadWithAuth(endpoint, filename)
+                              }}
+                            >
+                              Download
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
