@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react"
+import { ArrowLeft, FileDown, Loader2, RefreshCw } from "lucide-react"
 
 import {
   AttendanceDailyBreakdown,
@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ApiClientError } from "@/lib/api"
+import { ApiClientError, API_BASE_URL, getToken, removeToken } from "@/lib/api"
 import { getPayrollAttendanceSummary } from "@/services/payroll"
 import { useAuthStore } from "@/store/auth-store"
 import { PayrollAttendanceSummary } from "@/types/payroll"
@@ -52,6 +52,47 @@ function formatDateTime(value: string): string {
     minute: "2-digit",
     hour12: false,
   }).format(parsed)
+}
+
+async function downloadWithAuth(endpoint: string, filename: string): Promise<void> {
+  const token = getToken()
+  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    redirect: "manual",
+  })
+
+  if (response.status === 401) {
+    removeToken()
+    if (typeof window !== "undefined") window.location.href = "/login"
+    throw new ApiClientError(401, { detail: "Unauthorized" })
+  }
+
+  if (!response.ok) {
+    let detail = response.statusText || "Download failed"
+    try {
+      const json = await response.json()
+      if (json?.detail) detail = String(json.detail)
+    } catch {
+      try {
+        const text = await response.text()
+        if (text.trim()) detail = text.trim()
+      } catch {}
+    }
+    throw new ApiClientError(response.status, { detail })
+  }
+
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = blobUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(blobUrl)
 }
 
 function SummaryCard({
@@ -91,6 +132,7 @@ export default function PayrollAttendanceEmployeeDetailPage() {
   const [summary, setSummary] = useState<PayrollAttendanceSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const monthOptions = useMemo(
@@ -182,24 +224,44 @@ export default function PayrollAttendanceEmployeeDetailPage() {
             : "Review a single employee payroll attendance preview."
         }
         action={
-          <Button
-            variant="outline"
-            onClick={() => {
-              const query = new URLSearchParams({
-                month,
-                year,
-              })
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              disabled={!summary || isDownloading}
+              onClick={async () => {
+                if (!summary) return
+                setIsDownloading(true)
+                try {
+                  const endpoint = `/api/v1/payroll/attendance-summary/${employeeId}/pdf?month=${month}&year=${year}`
+                  const filename = `attendance_${summary.employee_code}_${year}-${String(month).padStart(2, "0")}.pdf`
+                  await downloadWithAuth(endpoint, filename)
+                } finally {
+                  setIsDownloading(false)
+                }
+              }}
+            >
+              {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+              Download PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const query = new URLSearchParams({
+                  month,
+                  year,
+                })
 
-              if (department) {
-                query.set("department", department)
-              }
+                if (department) {
+                  query.set("department", department)
+                }
 
-              router.push(`/admin/payroll/attendance-preview?${query.toString()}`)
-            }}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Preview
-          </Button>
+                router.push(`/admin/payroll/attendance-preview?${query.toString()}`)
+              }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Preview
+            </Button>
+          </div>
         }
       >
         <Card className="border-0 shadow-sm">
