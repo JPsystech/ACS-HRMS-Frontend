@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { api, ApiClientError } from "@/lib/api"
 import { useAuthStore } from "@/store/auth-store"
 import { canAccessTeamModulesOrHr } from "@/lib/utils"
+import { formatDateTimeIST } from "@/lib/format-attendance"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { format, subDays } from "date-fns"
+import { format, parseISO, subDays } from "date-fns"
 import { Calendar as CalendarIcon, FilterX } from "lucide-react"
 
 type Correction = {
@@ -32,6 +33,8 @@ type Correction = {
   approved_by_name?: string | null
   approved_at?: string | null
   admin_remarks?: string | null
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 export default function AttendanceCorrectionsPage() {
@@ -59,7 +62,12 @@ export default function AttendanceCorrectionsPage() {
       
       const query = params.toString() ? `?${params.toString()}` : ""
       const data = await api.get<Correction[]>(`/api/v1/attendance-corrections${query}`)
-      setItems(data || [])
+      const sorted = (data || []).slice().sort((a, b) => {
+        const aT = a.created_at ? new Date(a.created_at).getTime() : 0
+        const bT = b.created_at ? new Date(b.created_at).getTime() : 0
+        return bT - aT
+      })
+      setItems(sorted)
     } catch (err) {
       const msg = err instanceof ApiClientError ? err.data.detail || "Failed to fetch" : "Unexpected error"
       toast({ variant: "destructive", title: "Error", description: msg })
@@ -78,7 +86,7 @@ export default function AttendanceCorrectionsPage() {
 
     const by = it.approved_by_name || `ID: ${it.approved_by}`
     const role = it.approved_role || ""
-    const at = it.approved_at ? format(new Date(it.approved_at), "dd/MM/yyyy HH:mm") : "-"
+    const at = it.approved_at ? formatDateTimeIST(it.approved_at) : "-"
     const remark = it.admin_remarks || ""
 
     return (
@@ -209,7 +217,8 @@ export default function AttendanceCorrectionsPage() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Employee</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Requested At</TableHead>
+                <TableHead>Work Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Requested In</TableHead>
                 <TableHead>Requested Out</TableHead>
@@ -224,10 +233,19 @@ export default function AttendanceCorrectionsPage() {
                 <TableRow key={it.id}>
                   <TableCell>{it.id}</TableCell>
                   <TableCell>{it.employee_name || it.employee_id}</TableCell>
-                  <TableCell>{it.date}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {it.created_at ? formatDateTimeIST(it.created_at) : "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {it.date ? format(parseISO(it.date), "dd MMM yyyy") : "—"}
+                  </TableCell>
                   <TableCell>{it.request_type}</TableCell>
-                  <TableCell>{it.requested_punch_in?.replace("T", " ") ?? "-"}</TableCell>
-                  <TableCell>{it.requested_punch_out?.replace("T", " ") ?? "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {it.requested_punch_in ? formatDateTimeIST(it.requested_punch_in) : "-"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {it.requested_punch_out ? formatDateTimeIST(it.requested_punch_out) : "-"}
+                  </TableCell>
                   <TableCell className="max-w-[320px] truncate">{it.reason}</TableCell>
                   <TableCell>
                     <Badge
