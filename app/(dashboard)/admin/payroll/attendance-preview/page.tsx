@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, RefreshCw } from "lucide-react"
+import { FileDown, Loader2, RefreshCw } from "lucide-react"
 
 import { RequireRole } from "@/components/auth/RequireRole"
 import {
@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { ApiClientError } from "@/lib/api"
+import { ApiClientError, API_BASE_URL, getToken, removeToken } from "@/lib/api"
 import {
   generatePayrollRun,
   getPayrollAttendanceBulkPreview,
@@ -54,6 +54,55 @@ function getErrorMessage(error: unknown): string {
   return "Unable to load attendance preview."
 }
 
+async function downloadWithAuthPost(
+  endpoint: string,
+  body: unknown,
+  filename: string
+): Promise<void> {
+  const token = getToken()
+  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body ?? {}),
+    redirect: "manual",
+  })
+
+  if (response.status === 401) {
+    removeToken()
+    if (typeof window !== "undefined") window.location.href = "/login"
+    throw new ApiClientError(401, { detail: "Unauthorized" })
+  }
+
+  if (!response.ok) {
+    let detail = response.statusText || "Download failed"
+    try {
+      const json = await response.json()
+      if (json?.detail) detail = String(json.detail)
+    } catch {
+      try {
+        const text = await response.text()
+        if (text.trim()) detail = text.trim()
+      } catch {}
+    }
+    throw new ApiClientError(response.status, { detail })
+  }
+
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = blobUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(blobUrl)
+}
+
 export default function PayrollAttendancePreviewPage() {
   const router = useRouter()
   const { user } = useAuthStore()
@@ -67,6 +116,7 @@ export default function PayrollAttendancePreviewPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false)
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const monthOptions = useMemo(
@@ -185,6 +235,55 @@ export default function PayrollAttendancePreviewPage() {
     }
   }, [departmentId, month, router, toast, year])
 
+  const handleDownloadAllPdfs = useCallback(async () => {
+    setIsDownloadingAll(true)
+    setErrorMessage(null)
+    try {
+      let employeeIds: number[] | undefined
+
+      if (departmentId !== "ALL") {
+        if (items.length === 0) {
+          toast({
+            title: "No employees found",
+            description: "Run preview first or select a department with employees.",
+            variant: "destructive",
+          })
+          return
+        }
+        employeeIds = items.map((item) => item.employee_id)
+      }
+
+      const monthNum = Number(month)
+      const yearNum = Number(year)
+      const filename = `attendance_summaries_${yearNum}-${String(monthNum).padStart(2, "0")}.zip`
+
+      await downloadWithAuthPost(
+        "/api/v1/payroll/attendance-summary/bulk-pdf",
+        {
+          month: monthNum,
+          year: yearNum,
+          ...(employeeIds ? { employee_ids: employeeIds } : {}),
+        },
+        filename
+      )
+
+      toast({
+        title: "Download started",
+        description: "Attendance PDFs are being downloaded as a ZIP file.",
+      })
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setErrorMessage(message)
+      toast({
+        title: "Unable to download PDFs",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloadingAll(false)
+    }
+  }, [departmentId, items, month, toast, year])
+
   useEffect(() => {
     if (user && (user.role === "HR" || user.role === "ADMIN")) {
       fetchDepartments()
@@ -272,6 +371,20 @@ export default function PayrollAttendancePreviewPage() {
                   disabled={isSubmitting}
                 >
                   <RefreshCw className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadAllPdfs}
+                  disabled={isDownloadingAll || isSubmitting || isGeneratingPayroll}
+                  title="Download all attendance summaries as a ZIP"
+                >
+                  {isDownloadingAll ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="mr-2 h-4 w-4" />
+                  )}
+                  Download All PDFs
                 </Button>
 
                 <AlertDialog>
