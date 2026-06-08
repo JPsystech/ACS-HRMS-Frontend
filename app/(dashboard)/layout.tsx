@@ -43,16 +43,19 @@ export default function ProtectedLayout({
         <MustChangeGuard>
           <div className="flex h-screen overflow-hidden">
             {/* Desktop sidebar (>= lg) */}
-            <aside className="hidden lg:block w-64 flex-shrink-0">
+            <aside className="hidden lg:block flex-shrink-0">
               <Sidebar />
             </aside>
             {/* Tablet sidebar (md to <lg) collapsed by default */}
-            <aside className="hidden md:block lg:hidden w-20 flex-shrink-0">
+            <aside className="hidden md:block lg:hidden flex-shrink-0">
               <Sidebar initialCollapsed />
             </aside>
             <div className="flex-1 flex flex-col overflow-hidden">
               <Topbar onMenuClick={() => setMobileOpen(true)} />
-              <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6">
+              <main className="flex-1 overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/80 via-slate-50 to-purple-50/80 dark:from-indigo-950/20 dark:via-slate-950 dark:to-purple-950/20 p-6 relative">
+                {/* Global decorative background element */}
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
                 {allowedRoles ? (
                   <RoleGuard allowedRoles={allowedRoles as any}>
                     {children}

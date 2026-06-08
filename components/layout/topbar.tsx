@@ -3,7 +3,7 @@
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { LogOut, User, ChevronRight, Menu, CheckCircle2 } from "lucide-react"
+import { LogOut, User, ChevronRight, Menu, CheckCircle2, KeyRound } from "lucide-react"
 import { usePathname } from "next/navigation"
 import * as React from "react"
 import {
@@ -131,11 +131,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <div className="flex items-center gap-4">
           {user && (
             <>
-              {/* Normal Login Indicator */}
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-100 animate-in fade-in slide-in-from-right-2 duration-500">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-xs font-medium text-green-700">Normal Login</span>
-              </div>
+              {/* Removed Normal Login Indicator */}
               
               <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -159,10 +155,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium">{user.emp_code}</p>
                     <p className="text-xs text-muted-foreground">{user.role}</p>
-                    <div className="md:hidden flex items-center gap-1.5 pt-1 text-green-600">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider">Normal Login</span>
-                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -174,6 +166,15 @@ export function Topbar({ onMenuClick }: TopbarProps) {
                 >
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    window.location.href = "/change-password"
+                  }}
+                  className="cursor-pointer"
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Change Password</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={logout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />

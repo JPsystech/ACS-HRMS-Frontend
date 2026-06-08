@@ -280,7 +280,7 @@ export function Sidebar({ initialCollapsed = false, onNavigate }: SidebarProps) 
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
         {filteredNavItems.map((item, index) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -334,12 +334,6 @@ export function Sidebar({ initialCollapsed = false, onNavigate }: SidebarProps) 
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-800/50 space-y-3">
-        {!collapsed && user && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">Normal Login</span>
-          </div>
-        )}
         <AnimatePresence>
           {!collapsed && (
             <motion.p

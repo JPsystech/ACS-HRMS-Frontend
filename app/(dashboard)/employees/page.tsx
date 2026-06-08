@@ -51,7 +51,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Edit, Trash2, Loader2, Search, Users } from "lucide-react"
+import { Plus, Edit, Trash2, Loader2, Search, Users, UserCheck, UserX, Building2, Filter, RotateCcw, Smartphone, CalendarDays, BadgeCheck, BriefcaseBusiness, ShieldCheck, KeyRound, AlertTriangle, UserPlus } from "lucide-react"
 import { format } from "date-fns"
 
 const MIN_PASSWORD_LENGTH = 6
@@ -135,7 +135,7 @@ export default function EmployeesPage() {
       if (user && employeesData && employeesData.length === 0) {
         // No employees returned by API. Check backend endpoint or org scoping.
       }
-      
+
       // Check if departments are empty but API call succeeded
       if (user && departmentsData && departmentsData.length === 0) {
         // No departments returned by API. Check backend endpoint or create departments first.
@@ -217,7 +217,7 @@ export default function EmployeesPage() {
   // Helper function to get allowed manager ranks based on target rank
   const getAllowedManagerRanks = (targetRank: number): number[] => {
     if (targetRank <= 1 || targetRank > 5) return []
-    
+
     switch (targetRank) {
       case 2: // MD → only ADMIN (rank 1)
         return [1]
@@ -239,51 +239,51 @@ export default function EmployeesPage() {
   useEffect(() => {
     const fetchManagerOptions = async () => {
       const roleRank = getRoleRank(formData.role)
-      
+
       // Guard: Only fetch if we have a valid role rank (2-5)
       if (roleRank <= 1 || roleRank > 5) {
         setManagerOptions([])
         return
       }
-      
+
       setManagerLoading(true)
-      
+
       // Request cancellation protection
       const requestId = ++latestRequestId.current
-      
+
       try {
         const allowedRanks = getAllowedManagerRanks(roleRank)
         if (allowedRanks.length === 0) {
           setManagerOptions([])
           return
         }
-        
+
         // Build query parameters for the new backend endpoint
         const params = new URLSearchParams({
           target_role_rank: roleRank.toString(),
         })
-        
+
         // For EMPLOYEE rank (>=5): pass department_id for same-department preference
         // For ranks 2-4: don't pass department_id (backend handles without department filter)
         if (roleRank >= 5 && formData.department_id > 0) {
           params.append('department_id', formData.department_id.toString())
         }
-        
+
         if (managerSearch) {
           params.append('search', managerSearch)
         }
-        
+
         const response = await api.get<ManagerOptions[]>(`/api/v1/employees/manager-options?${params}`)
-        
+
         // Only apply results if this is the latest request
         if (requestId !== latestRequestId.current) {
           return
         }
-        
+
         // API returns array directly, no data property
         const managerList = Array.isArray(response) ? response : []
         setManagerOptions(managerList)
-        
+
         // Auto-select current ADMIN user as reporting manager if:
         // 1. Current user is ADMIN
         // 2. No reporting manager is currently selected
@@ -360,10 +360,10 @@ export default function EmployeesPage() {
       })
       return
     }
-    
+
     // Validate reporting manager based on role rank
     const roleRank = getRoleRank(formData.role)
-    
+
     // ADMIN (rank 1) must have null reporting manager
     if (roleRank === 1 && formData.reporting_manager_id !== null) {
       toast({
@@ -373,7 +373,7 @@ export default function EmployeesPage() {
       })
       return
     }
-    
+
     // Non-admin roles (rank 2-5) must have a reporting manager
     if (roleRank > 1 && !formData.reporting_manager_id) {
       toast({
@@ -388,11 +388,11 @@ export default function EmployeesPage() {
 
     // Handle password validation with proper trimming and UTF-8 byte checking
     let processedPassword: string | undefined = undefined
-    
+
     if (formData.password) {
       // Trim whitespace
       const trimmedPassword = formData.password.trim()
-      
+
       // If empty after trimming, treat as no password
       if (!trimmedPassword) {
         processedPassword = undefined
@@ -408,7 +408,7 @@ export default function EmployeesPage() {
           })
           return
         }
-        
+
         if (trimmedPassword.length > MAX_PASSWORD_LENGTH) {
           const message = `Password cannot exceed ${MAX_PASSWORD_LENGTH} characters`
           setPasswordError(message)
@@ -419,7 +419,7 @@ export default function EmployeesPage() {
           })
           return
         }
-        
+
         // Validate UTF-8 byte length
         const byteLength = getUtf8ByteLength(trimmedPassword)
         if (byteLength > 72) {
@@ -432,7 +432,7 @@ export default function EmployeesPage() {
           })
           return
         }
-        
+
         processedPassword = trimmedPassword
       }
     }
@@ -607,959 +607,1081 @@ export default function EmployeesPage() {
 
   return (
     <RequireRole allowedRoles={["HR", "ADMIN"]}>
-      <PageContainer
-        title="Employees"
-        description="Manage employee information, roles, and departments"
-        action={
-          user?.role_rank === 1 && (
-            <Button onClick={handleCreate} className="shadow-sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Employee
-            </Button>
-          )
-        }
-      >
-        {/* Search and Filters */}
-        <Card className="border-0 shadow-sm mb-4">
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or employee code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[150px]">
-              <Label className="text-xs text-muted-foreground mb-1 block">
-                Role
-              </Label>
-              <Select
-                value={filterRole}
-                onValueChange={(value) =>
-                  setFilterRole(value as EmployeeRole | "ALL")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Roles</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
-                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                </SelectContent>
-              </Select>
+      <PageContainer>
+        <div className="space-y-6">
+          {/* 2. Hero Section */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 to-slate-800 p-8 shadow-xl">
+            <div className="absolute right-0 top-0 -translate-y-1/4 translate-x-1/4 opacity-10 pointer-events-none">
+              <Users className="h-64 w-64 text-white" />
             </div>
-            <div className="flex-1 min-w-[150px]">
-              <Label className="text-xs text-muted-foreground mb-1 block">
-                Department
-              </Label>
-              <Select
-                value={filterDepartment.toString()}
-                onValueChange={(value) =>
-                  setFilterDepartment(value === "ALL" ? "ALL" : parseInt(value))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Departments</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id.toString()}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <Label className="text-xs text-muted-foreground mb-1 block">
-                Status
-              </Label>
-              <Select
-                value={filterActive === "ALL" ? "ALL" : filterActive.toString()}
-                onValueChange={(value) =>
-                  setFilterActive(
-                    value === "ALL" ? "ALL" : value === "true"
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Status</SelectItem>
-                  <SelectItem value="true">Active</SelectItem>
-                  <SelectItem value="false">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2 text-white">
+                <h1 className="text-3xl font-bold tracking-tight">Employee Control Center</h1>
+                <p className="max-w-xl text-slate-300">
+                  Manage employees, roles, departments, punch policy and account access from one place.
+                </p>
+              </div>
+              {user?.role_rank === 1 && (
+                <Button
+                  onClick={handleCreate}
+                  size="lg"
+                  className="bg-white text-slate-900 hover:bg-slate-100 shadow-sm transition-all whitespace-nowrap rounded-xl font-medium"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create Employee
+                </Button>
+              )}
             </div>
           </div>
-          </div>
-        </CardContent>
-        </Card>
 
-        {/* API Error Banner */}
-        {apiError && !loading && (
-          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-            <p className="text-sm text-destructive">
-              <strong>API Error:</strong> {apiError}
-            </p>
+          {/* 3. KPI Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Total Employees</p>
+                  <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{employees.length}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                  <UserCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Active</p>
+                  <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{employees.filter(e => e.active).length}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                  <UserX className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Inactive</p>
+                  <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{employees.filter(e => !e.active).length}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Departments</p>
+                  <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{departments.length}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
 
-        {/* Warning Banner if empty but authenticated */}
-        {!loading && !apiError && employees.length === 0 && user && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-800">
-              <strong>Warning:</strong> No employees returned by API. Check
-              backend endpoint or org scoping.
-            </p>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="border rounded-lg">
-            <div className="p-4 space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
+          {/* API Error Banner */}
+          {apiError && !loading && (
+            <div className="flex items-center gap-3 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-destructive">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <div>
+                <h4 className="font-semibold">Failed to load employees</h4>
+                <p className="text-sm opacity-90">{apiError}</p>
+              </div>
             </div>
-          </div>
-        ) : filteredEmployees.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={
-              searchQuery || filterRole !== "ALL" || filterDepartment !== "ALL" || filterActive !== "ALL"
-                ? "No employees match your filters"
-                : "No employees found"
-            }
-            description={
-              searchQuery || filterRole !== "ALL" || filterDepartment !== "ALL" || filterActive !== "ALL"
-                ? "Try adjusting your search or filter criteria"
-                : "Get started by creating your first employee"
-            }
-            action={
-              !searchQuery &&
-              filterRole === "ALL" &&
-              filterDepartment === "ALL" &&
-              filterActive === "ALL"
-                ? {
-                    label: "Create First Employee",
-                    onClick: handleCreate,
-                  }
-                : undefined
-            }
-          />
-        ) : (
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <AnimatedTable>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Emp Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Mobile</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Department</TableHead>
+          )}
 
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEmployees.map((employee, index) => (
-                      <AnimatedTableRow key={employee.id} delay={index * 0.03}>
-                    <TableCell className="font-medium">
-                      {employee.emp_code}
-                    </TableCell>
-                    <TableCell>{employee.name}</TableCell>
-                    <TableCell>{employee.mobile_number || "-"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          employee.role === "HR"
-                            ? "default"
-                            : employee.role === "MANAGER"
-                            ? "secondary"
-                            : "outline"
-                        }
-                      >
-                        {employee.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getDepartmentName(employee.department_id)}
-                    </TableCell>
-                    <TableCell>
-                      {/* {employee.reporting_manager ? `${employee.reporting_manager.emp_code} - ${employee.reporting_manager.name}` : "None"} */}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={employee.active ? "default" : "secondary"}
-                        className={employee.active ? "animate-pulse" : ""}
-                      >
-                        {employee.active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {user?.role_rank === 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(employee)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {user?.role_rank === 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setResetEmployee(employee)
-                              setResetMode("generate")
-                              setResetPassword("")
-                              setTempPassword(null)
-                              setResetError("")
-                              setResetOpen(true)
-                            }}
-                          >
-                            Reset Password
-                          </Button>
-                        )}
-                        {user?.role_rank === 1 && employee.active && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(employee)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                      </AnimatedTableRow>
+          {/* 4. Filter Section */}
+          <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md overflow-hidden">
+            <div className="border-b border-slate-100 dark:border-slate-800/60 p-6 pb-4">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 mb-1">
+                <Filter className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-lg font-semibold">Employee Filters</h3>
+              </div>
+              <p className="text-sm text-slate-500">Search and filter employees by role, department and status.</p>
+            </div>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Name, Code or Mobile"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="rounded-xl pl-9 bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500"
+                  />
+                </div>
+                <Select value={filterRole} onValueChange={(val) => setFilterRole(val as EmployeeRole | "ALL")}>
+                  <SelectTrigger className="rounded-xl bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ALL">All Roles</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="MANAGER">Manager</SelectItem>
+                    <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterDepartment.toString()} onValueChange={(val) => setFilterDepartment(val === "ALL" ? "ALL" : parseInt(val))}>
+                  <SelectTrigger className="rounded-xl bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ALL">All Departments</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
                     ))}
-                  </TableBody>
-                </AnimatedTable>
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Select value={filterActive.toString()} onValueChange={(val) => setFilterActive(val === "ALL" ? "ALL" : val === "true")}>
+                    <SelectTrigger className="flex-1 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="ALL">All Status</SelectItem>
+                      <SelectItem value="true">Active</SelectItem>
+                      <SelectItem value="false">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterRole("ALL");
+                      setFilterDepartment("ALL");
+                      setFilterActive("ALL");
+                    }}
+                    title="Reset Filters"
+                  >
+                    <RotateCcw className="h-4 w-4 text-slate-500" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Create Dialog */}
-        <Dialog
-          open={createOpen}
-          onOpenChange={(open) => {
-            setCreateOpen(open)
-            if (!open) {
-              setFormData({
-                emp_code: "",
-                name: "",
-                mobile_number: "",
-                role: "EMPLOYEE",
-                department_id: departments[0]?.id || 0,
-
-                join_date: new Date().toISOString().split("T")[0],
-                password: "",
-                active: true,
-              })
-            }
-          }}
-        >
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Employee</DialogTitle>
-              <DialogDescription>
-                Add a new employee to the system.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="create-emp_code">Employee Code *</Label>
-                  <Input
-                    id="create-emp_code"
-                    value={formData.emp_code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, emp_code: e.target.value })
-                    }
-                    placeholder="EMP001"
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-name">Name *</Label>
-                  <Input
-                    id="create-name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="John Doe"
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-mobile">Mobile Number</Label>
-                  <Input
-                    id="create-mobile"
-                    type="tel"
-                    value={formData.mobile_number ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, mobile_number: e.target.value })
-                    }
-                    placeholder="+91 9876543210"
-                    disabled={submitting}
-                  />
-                </div>
+          {/* 5. Employee Register Table */}
+          {loading ? (
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800/60">
+                <Skeleton className="h-6 w-48 mb-2 rounded-lg" />
+                <Skeleton className="h-4 w-64 rounded-lg" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="create-role">Role *</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value) => {
-                      const newRole = value as EmployeeRole
-                      const rank = getRoleRank(newRole)
-                      setFormData({
-                        ...formData,
-                        role: newRole,
-                        reporting_manager_id: getRoleRank(newRole) === 1 ? null : formData.reporting_manager_id
-                      })
-                      setManagerSearch("")
-
-                    }}
-                    disabled={submitting || roles.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={roles.length === 0 ? "No roles found" : "Select role"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          No roles available
-                        </div>
-                      ) : (
-                        roles
-                          .filter((r) => r.is_active)
-                          .map((role) => (
-                            <SelectItem key={role.id} value={role.name}>
-                              {role.name} (Rank: {role.role_rank})
-                            </SelectItem>
-                          ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-department">Department *</Label>
-                  <Select
-                    value={formData.department_id.toString()}
-                    onValueChange={(value) => {
-                      const newDeptId = parseInt(value)
-                      setFormData({
-                        ...formData,
-                        department_id: newDeptId,
-                        reporting_manager_id: null // Clear manager when department changes
-                      })
-                      setManagerSearch("")
-                      setManagerOptions([])
-                    }}
-                    disabled={submitting || departments.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={departments.length === 0 ? "No departments found" : "Select department"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          No departments available
-                        </div>
-                      ) : (
-                        departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id.toString()}>
-                            {dept.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {departments.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      <a href="/departments" className="text-blue-500 hover:underline">
-                        Create departments first
-                      </a>
-                    </p>
-                  )}
-                </div>
+              <div className="p-6 space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))}
               </div>
-              {getRoleRank(formData.role) > 1 ? (
-                <div className="grid gap-2">
-
-                  <div className="flex gap-2">
-                    <Input
-                      id="create-manager-search"
-                      placeholder="Search by name or code..."
-                      value={managerSearch}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setManagerSearch(value)
-
-                      }}
-                      disabled={submitting}
-                    />
-                  </div>
-                  <Select
-
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        reporting_manager_id: value ? parseInt(value) : null
-                      })
-                    }
-                    disabled={submitting || managerLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={managerLoading ? "Loading..." : "Select manager"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {managerLoading ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          Loading managers...
-                        </div>
-                      ) : managerOptions.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          {managerSearch ? 'No managers found matching your search' : 'No eligible reporting managers found'}
-                        </div>
-                      ) : (
-                        managerOptions.map((manager) => (
-                          <SelectItem key={manager.id} value={manager.id.toString()}>
-                            {manager.emp_code} - {manager.name} ({manager.role_name})
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Only employees with a higher role rank than the selected role are listed.
-                  </p>
+            </Card>
+          ) : filteredEmployees.length === 0 ? (
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+              <EmptyState
+                icon={Users}
+                title={
+                  searchQuery || filterRole !== "ALL" || filterDepartment !== "ALL" || filterActive !== "ALL"
+                    ? "No employees match your filters"
+                    : "No employees found"
+                }
+                description={
+                  searchQuery || filterRole !== "ALL" || filterDepartment !== "ALL" || filterActive !== "ALL"
+                    ? "Try adjusting your search or filter criteria to see results."
+                    : "You haven't added any employees yet. Get started by creating your first employee."
+                }
+                action={
+                  !searchQuery && filterRole === "ALL" && filterDepartment === "ALL" && filterActive === "ALL" && user?.role_rank === 1
+                    ? {
+                        label: "Create First Employee",
+                        onClick: handleCreate,
+                      }
+                    : undefined
+                }
+              />
+            </Card>
+          ) : (
+            <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800/60 gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Employee Register</h3>
+                  <p className="text-sm text-slate-500 mt-1">Complete employee list with role, department, punch policy and access status.</p>
                 </div>
-              ) : (
-                <div className="grid gap-2">
-                  <Label htmlFor="create-reporting-manager">Reporting Manager</Label>
-                  <p className="text-xs text-muted-foreground">
-                    No reporting manager required for Admin role (rank 1)
-                  </p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="create-join_date">Join Date *</Label>
-                  <Input
-                    id="create-join_date"
-                    type="date"
-                    value={formData.join_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, join_date: e.target.value })
-                    }
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-password">Password</Label>
-                  <Input
-                    id="create-password"
-                    type="password"
-                    maxLength={MAX_PASSWORD_LENGTH}
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        password: e.target.value.slice(0, MAX_PASSWORD_LENGTH),
-                      })
-                    }
-                    placeholder="Leave empty for default"
-                    disabled={submitting}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional. 6-{MAX_PASSWORD_LENGTH} characters; leave empty to
-                    let backend assign a default password.
-                  </p>
-                  {passwordError && (
-                    <p className="text-xs text-destructive">{passwordError}</p>
-                  )}
-                </div>
+                <Badge variant="secondary" className="rounded-lg px-3 py-1 bg-slate-100 dark:bg-slate-800 font-medium whitespace-nowrap self-start sm:self-auto text-slate-600 dark:text-slate-300 border-none">
+                  {filteredEmployees.length} {filteredEmployees.length === 1 ? 'Employee' : 'Employees'}
+                </Badge>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-work_mode">Work Mode</Label>
-                <Select
-                  value={formData.work_mode || "OFFICE"}
-                  onValueChange={(value: WorkMode) =>
-                    setFormData({ ...formData, work_mode: value })
-                  }
-                  disabled={submitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select work mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OFFICE">Office</SelectItem>
-                    <SelectItem value="SITE">Site</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="create-active"
-                  checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
-                  disabled={submitting}
-                />
-                <Label htmlFor="create-active">Active</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setCreateOpen(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSubmitCreate} disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Dialog */}
-        <Dialog
-          open={editOpen}
-          onOpenChange={(open) => {
-            setEditOpen(open)
-            if (!open) {
-              setSelectedEmployee(null)
-            }
-          }}
-        >
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Employee</DialogTitle>
-              <DialogDescription>
-                Update employee information.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-emp_code">Employee Code</Label>
-                  <Input
-                    id="edit-emp_code"
-                    value={formData.emp_code}
-                    disabled
-                    className="bg-muted"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Employee code cannot be changed
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-name">Name *</Label>
-                  <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-mobile">Mobile Number</Label>
-                  <Input
-                    id="edit-mobile"
-                    type="tel"
-                    value={formData.mobile_number ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, mobile_number: e.target.value })
-                    }
-                    placeholder="+91 9876543210"
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-role">Role *</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value) => {
-                      const newRole = value as EmployeeRole
-                      const rank = getRoleRank(newRole)
-                      setFormData({
-                        ...formData,
-                        role: newRole,
-
-                      })
-                      setManagerSearch("")
-
-                    }}
-                    disabled={submitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.length === 0 ? (
-                        <>
-                          <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                          <SelectItem value="MANAGER">Manager</SelectItem>
-                          <SelectItem value="HR">HR</SelectItem>
-                        </>
-                      ) : (
-                        roles
-                          .filter((r) => r.is_active)
-                          .map((role) => (
-                            <SelectItem key={role.id} value={role.name}>
-                              {role.name}
-                            </SelectItem>
-                          ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-department">Department *</Label>
-                  <Select
-                    value={formData.department_id.toString()}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        department_id: parseInt(value),
-                      })
-                    }
-                    disabled={submitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id.toString()}>
-                          {dept.name}
-                        </SelectItem>
+              <div className="overflow-x-auto">
+                <div className="min-w-[1050px]">
+                  <AnimatedTable>
+                    <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-200/60 dark:border-slate-800/60">
+                      <TableRow className="hover:bg-transparent border-0">
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Employee</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Mobile</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Role & Dept</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Reporting To</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Policy</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Status</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600 dark:text-slate-300">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEmployees.map((employee, index) => (
+                        <AnimatedTableRow key={employee.id} delay={index * 0.03} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800/60 last:border-0 group">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
+                                {employee.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{employee.name}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <code className="text-xs font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                    {employee.emp_code}
+                                  </code>
+                                  {employee.join_date && (
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">
+                                      {format(new Date(employee.join_date), 'MMM yyyy')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {employee.mobile_number ? (
+                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                <Smartphone className="h-4 w-4 text-slate-400" />
+                                <span className="font-medium">{employee.mobile_number}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm italic text-slate-400 dark:text-slate-500">Not added</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1.5 items-start">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  employee.role === "ADMIN"
+                                    ? "border-transparent bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 font-medium"
+                                    : employee.role === "HR"
+                                    ? "border-transparent bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium"
+                                    : employee.role === "MANAGER" || employee.role === "VP" || employee.role === "MD"
+                                    ? "border-transparent bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-medium"
+                                    : "border-slate-200 bg-transparent text-slate-600 dark:border-slate-700 dark:text-slate-300 font-medium"
+                                }
+                              >
+                                {employee.role}
+                              </Badge>
+                              <span className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate max-w-[150px]" title={getDepartmentName(employee.department_id)}>
+                                {getDepartmentName(employee.department_id)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              {employee.reporting_manager_id ? (
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={getManagerName(employee.reporting_manager_id)}>
+                                  {getManagerName(employee.reporting_manager_id).split(' ')[0]}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-slate-400 italic">None</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1.5 items-start">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  employee.work_mode === "SITE"
+                                    ? "border-transparent bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 font-medium"
+                                    : employee.work_mode === "OFFICE"
+                                    ? "border-slate-200 bg-transparent text-slate-600 dark:border-slate-700 dark:text-slate-300 font-medium"
+                                    : "border-transparent bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 font-medium" 
+                                }
+                              >
+                                {employee.work_mode || "OFFICE"}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                employee.active
+                                  ? "border-transparent bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-medium px-2.5 py-0.5"
+                                  : "border-rose-200 bg-transparent text-rose-700 dark:border-rose-800 dark:text-rose-400 font-medium px-2.5 py-0.5"
+                              }
+                            >
+                              {employee.active ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                              {user?.role_rank === 1 && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg"
+                                  onClick={() => handleEdit(employee)}
+                                  title="Edit Employee"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {user?.role_rank === 1 && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 rounded-lg ml-1"
+                                  onClick={() => {
+                                    setResetEmployee(employee)
+                                    setResetMode("generate")
+                                    setResetPassword("")
+                                    setTempPassword(null)
+                                    setResetError("")
+                                    setResetOpen(true)
+                                  }}
+                                  title="Reset Password"
+                                >
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {user?.role_rank === 1 && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg ml-1 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                                  onClick={() => handleDelete(employee)}
+                                  title={employee.active ? "Deactivate Employee" : "Already Inactive"}
+                                  disabled={!employee.active}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </AnimatedTableRow>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </TableBody>
+                  </AnimatedTable>
                 </div>
               </div>
-              {getRoleRank(formData.role) > 1 && (
-                <div className="grid gap-2">
+            </Card>
+          )}
 
-                  <div className="flex gap-2">
-                    <Input
-                      id="edit-manager-search"
-                      placeholder="Search by name or code..."
-                      value={managerSearch}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setManagerSearch(value)
-
-                      }}
-                      disabled={submitting}
-                    />
+          {/* 9. Create Employee Dialog */}
+          <Dialog
+            open={createOpen}
+            onOpenChange={(open) => {
+              setCreateOpen(open)
+              if (!open) {
+                setFormData({
+                  emp_code: "",
+                  name: "",
+                  mobile_number: "",
+                  role: "EMPLOYEE",
+                  department_id: departments[0]?.id || 0,
+                  reporting_manager_id: null,
+                  work_mode: "OFFICE",
+                  join_date: new Date().toISOString().split("T")[0],
+                  password: "",
+                  active: true,
+                })
+              }
+            }}
+          >
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl border-slate-200/60 dark:border-slate-800/60 shadow-2xl">
+              <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <UserPlus className="h-5 w-5" />
                   </div>
-                  <Select
+                  <div>
+                    <DialogTitle className="text-xl font-bold">Create Employee</DialogTitle>
+                    <DialogDescription className="mt-1 text-slate-500">
+                      Add a new employee to the system with complete access details.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/30 dark:bg-slate-900/10">
+                {/* Section A: Basic Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <BadgeCheck className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">A. Basic Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-emp_code" className="text-sm font-medium">Employee Code *</Label>
+                      <Input
+                        id="create-emp_code"
+                        value={formData.emp_code}
+                        onChange={(e) => setFormData({ ...formData, emp_code: e.target.value })}
+                        placeholder="EMP001"
+                        required
+                        disabled={submitting}
+                        className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-name" className="text-sm font-medium">Full Name *</Label>
+                      <Input
+                        id="create-name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="John Doe"
+                        required
+                        disabled={submitting}
+                        className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-mobile" className="text-sm font-medium">Mobile Number</Label>
+                      <div className="relative">
+                        <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="create-mobile"
+                          type="tel"
+                          value={formData.mobile_number ?? ""}
+                          onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
+                          placeholder="+91 9876543210"
+                          disabled={submitting}
+                          className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-join_date" className="text-sm font-medium">Join Date *</Label>
+                      <div className="relative">
+                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="create-join_date"
+                          type="date"
+                          value={formData.join_date}
+                          onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                          required
+                          disabled={submitting}
+                          className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
+                {/* Section B: Organization Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <BriefcaseBusiness className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">B. Organization Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-role" className="text-sm font-medium">Role *</Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(value) => {
+                          const newRole = value as EmployeeRole
+                          const rank = getRoleRank(newRole)
+                          setFormData({
+                            ...formData,
+                            role: newRole,
+                            reporting_manager_id: rank === 1 ? null : formData.reporting_manager_id
+                          })
+                          setManagerSearch("")
+                        }}
+                        disabled={submitting || roles.length === 0}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder={roles.length === 0 ? "No roles found" : "Select role"} />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {roles.length === 0 ? (
+                            <div className="py-2 px-3 text-sm text-muted-foreground">No roles available</div>
+                          ) : (
+                            roles.filter((r) => r.is_active).map((role) => (
+                              <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-department" className="text-sm font-medium">Department *</Label>
+                      <Select
+                        value={formData.department_id.toString()}
+                        onValueChange={(value) => {
+                          const newDeptId = parseInt(value)
+                          setFormData({
+                            ...formData,
+                            department_id: newDeptId,
+                            reporting_manager_id: null
+                          })
+                          setManagerSearch("")
+                          setManagerOptions([])
+                        }}
+                        disabled={submitting || departments.length === 0}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder={departments.length === 0 ? "No departments found" : "Select department"} />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {departments.length === 0 ? (
+                            <div className="py-2 px-3 text-sm text-muted-foreground">No departments available</div>
+                          ) : (
+                            departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {getRoleRank(formData.role) > 1 ? (
+                      <div className="space-y-2 sm:col-span-2 p-4 bg-slate-100/50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800/80">
+                        <Label className="text-sm font-medium">Reporting Manager</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                              placeholder="Search manager..."
+                              value={managerSearch}
+                              onChange={(e) => setManagerSearch(e.target.value)}
+                              disabled={submitting}
+                              className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                            />
+                          </div>
+                          <Select
+                            onValueChange={(value) => setFormData({ ...formData, reporting_manager_id: value ? parseInt(value) : null })}
+                            disabled={submitting || managerLoading}
+                          >
+                            <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                              <SelectValue placeholder={managerLoading ? "Loading..." : "Select manager"} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {managerLoading ? (
+                                <div className="py-2 px-3 text-sm text-muted-foreground">Loading managers...</div>
+                              ) : managerOptions.length === 0 ? (
+                                <div className="py-2 px-3 text-sm text-muted-foreground">
+                                  {managerSearch ? 'No matches found' : 'No eligible managers'}
+                                </div>
+                              ) : (
+                                managerOptions.map((manager) => (
+                                  <SelectItem key={manager.id} value={manager.id.toString()}>
+                                    {manager.name} ({manager.role_name})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 sm:col-span-2">
+                         <Label className="text-sm font-medium text-slate-400">Reporting Manager</Label>
+                         <p className="text-sm text-slate-500 italic">Admin roles do not require a reporting manager.</p>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="create-work_mode" className="text-sm font-medium">Punch Policy</Label>
+                      <Select
+                        value={formData.work_mode || "OFFICE"}
+                        onValueChange={(value: WorkMode) => setFormData({ ...formData, work_mode: value })}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select punch policy" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="OFFICE">Office</SelectItem>
+                          <SelectItem value="SITE">Site / Field</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
 
-                      })
-                    }
-                    disabled={submitting || managerLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={managerLoading ? "Loading..." : "Select manager"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {managerLoading ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          Loading managers...
-                        </div>
-                      ) : managerOptions.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">
-                          {managerSearch ? 'No managers found matching your search' : 'No eligible reporting managers found'}
-                        </div>
+                {/* Section C: Account Access */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <ShieldCheck className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Account Access</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-password" className="text-sm font-medium">Initial Password</Label>
+                      <Input
+                        id="create-password"
+                        type="password"
+                        maxLength={MAX_PASSWORD_LENGTH}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value.slice(0, MAX_PASSWORD_LENGTH) })}
+                        placeholder="Leave empty for auto-generated"
+                        disabled={submitting}
+                        className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                      />
+                      {passwordError ? (
+                        <p className="text-xs text-destructive">{passwordError}</p>
                       ) : (
-                        managerOptions.map((manager) => (
-                          <SelectItem key={manager.id} value={manager.id.toString()}>
-                            {manager.emp_code} - {manager.name} ({manager.role_name})
-                          </SelectItem>
-                        ))
+                        <p className="text-xs text-slate-500">Optional. User forced to change on first login.</p>
                       )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Only employees with a higher role rank than the selected role are listed.
-                  </p>
-                </div>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="edit-join_date">Join Date *</Label>
-                <Input
-                  id="edit-join_date"
-                  type="date"
-                  value={formData.join_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, join_date: e.target.value })
-                  }
-                  required
-                  disabled={submitting}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-work_mode">Work Mode</Label>
-                <Select
-                  value={formData.work_mode || "OFFICE"}
-                  onValueChange={(value: WorkMode) =>
-                    setFormData({ ...formData, work_mode: value })
-                  }
-                  disabled={submitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select work mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OFFICE">Office</SelectItem>
-                    <SelectItem value="SITE">Site</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="edit-active"
-                  checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
-                  disabled={submitting}
-                />
-                <Label htmlFor="edit-active">Active</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setEditOpen(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSubmitEdit} disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Update"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Reset Password Dialog */}
-        <Dialog
-          open={resetOpen}
-          onOpenChange={(open) => {
-            setResetOpen(open)
-            if (!open) {
-              setResetEmployee(null)
-              setResetMode("generate")
-              setResetPassword("")
-              setTempPassword(null)
-              setResetError("")
-            }
-          }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Reset Password</DialogTitle>
-              <DialogDescription>
-                Choose to set a temporary password or define one manually. User will be forced to change password on next login.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant={resetMode === "generate" ? "default" : "outline"}
-                  onClick={() => setResetMode("generate")}
-                >
-                  Generate Temporary
-                </Button>
-                <Button
-                  type="button"
-                  variant={resetMode === "manual" ? "default" : "outline"}
-                  onClick={() => setResetMode("manual")}
-                >
-                  Set Manually
-                </Button>
-              </div>
-              {resetMode === "manual" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="reset-password">New Password</Label>
-                  <Input
-                    id="reset-password"
-                    type="password"
-                    value={resetPassword}
-                    onChange={(e) => setResetPassword(e.target.value)}
-                    placeholder="Enter a strong password"
-                    disabled={resetSubmitting || !!tempPassword}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Must be at least 8 characters with uppercase, number and special character.
-                  </p>
-                </div>
-              )}
-              {resetError && (
-                <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                  {resetError}
-                </div>
-              )}
-              {tempPassword && (
-                <div className="p-3 rounded border bg-muted">
-                  <p className="text-sm mb-2">Temporary password (shown once):</p>
-                  <div className="flex items-center gap-2">
-                    <Input value={tempPassword} readOnly />
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(tempPassword)
-                        toast({ title: "Copied", description: "Temporary password copied to clipboard" })
-                      }}
-                    >
-                      Copy
-                    </Button>
+                    </div>
+                    <div className="flex items-center space-x-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                      <Switch
+                        id="create-active"
+                        checked={formData.active}
+                        onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                        disabled={submitting}
+                        className="data-[state=checked]:bg-emerald-500"
+                      />
+                      <div className="space-y-0.5">
+                        <Label htmlFor="create-active" className="text-sm font-medium cursor-pointer">Active Account</Label>
+                        <p className="text-xs text-slate-500">Allow login access</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetSubmitting}>
-                Close
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!resetEmployee) return
-                  setResetSubmitting(true)
-                  setResetError("")
-                  try {
-                    const payload =
-                      resetMode === "generate"
-                        ? { generate_random: true }
-                        : { generate_random: false, new_password: resetPassword }
-                    const resp = await api.post<{ temp_password?: string }>(
-                      `/api/v1/admin/users/${resetEmployee.id}/reset-password`,
-                      payload
-                    )
-                    const tmp = (resp && (resp as any).temp_password) || undefined
-                    if (tmp) {
-                      setTempPassword(tmp)
-                    }
-                    toast({
-                      title: "Password reset",
-                      description:
-                        tmp
-                          ? "Temporary password generated. Share securely with the user."
-                          : "Password set successfully.",
-                    })
-                  } catch (err) {
-                    if (err instanceof ApiClientError) {
-                      setResetError(err.data.detail || "Failed to reset password")
-                    } else {
-                      setResetError("An unexpected error occurred")
-                    }
-                  } finally {
-                    setResetSubmitting(false)
-                  }
-                }}
-                disabled={resetSubmitting || (resetMode === "manual" && resetPassword.length === 0) || !!tempPassword}
-              >
-                {resetSubmitting ? "Processing..." : resetMode === "generate" ? "Generate" : "Set Password"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </div>
+              <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10 flex sm:justify-end gap-2">
+                <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting} className="rounded-xl">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitCreate} disabled={submitting} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px] shadow-md shadow-indigo-600/20">
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
+                  ) : (
+                    "Create Employee"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog
-          open={deleteOpen}
-          onOpenChange={(open) => {
-            setDeleteOpen(open)
-            if (!open) {
-              setSelectedEmployee(null)
-            }
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Deactivate Employee</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to deactivate{" "}
-                <strong>
-                  {selectedEmployee?.name} ({selectedEmployee?.emp_code})
-                </strong>
-                ? This will mark the employee as inactive.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmDelete}
-                disabled={submitting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Deactivating...
-                  </>
-                ) : (
-                  "Deactivate"
+          {/* 9. Edit Employee Dialog */}
+          <Dialog
+            open={editOpen}
+            onOpenChange={(open) => {
+              setEditOpen(open)
+              if (!open) setSelectedEmployee(null)
+            }}
+          >
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl border-slate-200/60 dark:border-slate-800/60 shadow-2xl">
+              <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <Edit className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold">Edit Employee</DialogTitle>
+                    <DialogDescription className="mt-1 text-slate-500">
+                      Update details for {formData.emp_code}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/30 dark:bg-slate-900/10">
+                {/* Section A: Basic Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <BadgeCheck className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">A. Basic Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-emp_code" className="text-sm font-medium text-slate-500">Employee Code</Label>
+                      <Input
+                        id="edit-emp_code"
+                        value={formData.emp_code}
+                        disabled
+                        className="rounded-xl bg-slate-100/50 dark:bg-slate-900/50 font-mono text-slate-500 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-name" className="text-sm font-medium">Full Name *</Label>
+                      <Input
+                        id="edit-name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                        disabled={submitting}
+                        className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-mobile" className="text-sm font-medium">Mobile Number</Label>
+                      <div className="relative">
+                        <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="edit-mobile"
+                          type="tel"
+                          value={formData.mobile_number ?? ""}
+                          onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
+                          placeholder="+91 9876543210"
+                          disabled={submitting}
+                          className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-join_date" className="text-sm font-medium">Join Date *</Label>
+                      <div className="relative">
+                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="edit-join_date"
+                          type="date"
+                          value={formData.join_date}
+                          onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                          required
+                          disabled={submitting}
+                          className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section B: Organization Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <BriefcaseBusiness className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">B. Organization Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-role" className="text-sm font-medium">Role *</Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(value) => {
+                          const newRole = value as EmployeeRole
+                          setFormData({ ...formData, role: newRole })
+                          setManagerSearch("")
+                        }}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {roles.length === 0 ? (
+                            <>
+                              <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                              <SelectItem value="MANAGER">Manager</SelectItem>
+                              <SelectItem value="HR">HR</SelectItem>
+                            </>
+                          ) : (
+                            roles.filter((r) => r.is_active).map((role) => (
+                              <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-department" className="text-sm font-medium">Department *</Label>
+                      <Select
+                        value={formData.department_id.toString()}
+                        onValueChange={(value) => setFormData({ ...formData, department_id: parseInt(value) })}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {getRoleRank(formData.role) > 1 && (
+                      <div className="space-y-2 sm:col-span-2 p-4 bg-slate-100/50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800/80">
+                        <Label className="text-sm font-medium">Reporting Manager</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                              placeholder="Search manager..."
+                              value={managerSearch}
+                              onChange={(e) => setManagerSearch(e.target.value)}
+                              disabled={submitting}
+                              className="pl-9 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                            />
+                          </div>
+                          <Select
+                            value={formData.reporting_manager_id ? formData.reporting_manager_id.toString() : undefined}
+                            onValueChange={(value) => setFormData({ ...formData, reporting_manager_id: value ? parseInt(value) : null })}
+                            disabled={submitting || managerLoading}
+                          >
+                            <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                              <SelectValue placeholder={managerLoading ? "Loading..." : "Select manager"} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {managerLoading ? (
+                                <div className="py-2 px-3 text-sm text-muted-foreground">Loading managers...</div>
+                              ) : managerOptions.length === 0 ? (
+                                <div className="py-2 px-3 text-sm text-muted-foreground">
+                                  {managerSearch ? 'No matches found' : 'No eligible managers'}
+                                </div>
+                              ) : (
+                                managerOptions.map((manager) => (
+                                  <SelectItem key={manager.id} value={manager.id.toString()}>
+                                    {manager.name} ({manager.role_name})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-work_mode" className="text-sm font-medium">Punch Policy</Label>
+                      <Select
+                        value={formData.work_mode || "OFFICE"}
+                        onValueChange={(value: WorkMode) => setFormData({ ...formData, work_mode: value })}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select punch policy" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="OFFICE">Office</SelectItem>
+                          <SelectItem value="SITE">Site / Field</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section C: Account Access */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <ShieldCheck className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Account Access</h4>
+                  </div>
+                  <div className="flex items-center space-x-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Switch
+                      id="edit-active"
+                      checked={formData.active}
+                      onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                      disabled={submitting}
+                      className="data-[state=checked]:bg-emerald-500"
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="edit-active" className="text-sm font-medium cursor-pointer">Active Account</Label>
+                      <p className="text-xs text-slate-500">Allow login access</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10 flex sm:justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditOpen(false)} disabled={submitting} className="rounded-xl">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitEdit} disabled={submitting} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px] shadow-md shadow-indigo-600/20">
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...</>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* 10. Reset Password Dialog */}
+          <Dialog
+            open={resetOpen}
+            onOpenChange={(open) => {
+              setResetOpen(open)
+              if (!open) {
+                setResetEmployee(null)
+                setResetMode("generate")
+                setResetPassword("")
+                setTempPassword(null)
+                setResetError("")
+              }
+            }}
+          >
+            <DialogContent className="max-w-md p-0 rounded-2xl overflow-hidden border-slate-200/60 dark:border-slate-800/60 shadow-xl">
+              <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold">Reset Password</DialogTitle>
+                    <DialogDescription className="mt-1 text-slate-500">
+                      User will be forced to change password on next login.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div className="p-6 space-y-6">
+                {resetEmployee && (
+                  <div className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-sm shadow-sm shrink-0">
+                      {resetEmployee.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{resetEmployee.name}</p>
+                      <code className="text-xs font-mono text-slate-500 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded mt-1 inline-block">
+                        {resetEmployee.emp_code}
+                      </code>
+                    </div>
+                  </div>
                 )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${resetMode === "generate" ? "bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                    onClick={() => setResetMode("generate")}
+                  >
+                    Generate Temporary
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${resetMode === "manual" ? "bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                    onClick={() => setResetMode("manual")}
+                  >
+                    Set Manually
+                  </button>
+                </div>
+                {resetMode === "manual" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-password">New Password</Label>
+                    <Input
+                      id="reset-password"
+                      type="password"
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      placeholder="Enter a strong password"
+                      disabled={resetSubmitting || !!tempPassword}
+                      className="rounded-xl"
+                    />
+                    <p className="text-xs text-slate-500">
+                      Must be at least 8 characters with uppercase, number and special character.
+                    </p>
+                  </div>
+                )}
+                {resetError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-xl">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>{resetError}</span>
+                  </div>
+                )}
+                {tempPassword && (
+                  <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/20 space-y-3">
+                    <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Generated Password (shown once):</p>
+                    <div className="flex items-center gap-2">
+                      <Input value={tempPassword} readOnly className="bg-white dark:bg-slate-950 rounded-xl font-mono border-emerald-200 dark:border-emerald-800" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                        onClick={() => {
+                          navigator.clipboard.writeText(tempPassword)
+                          toast({ title: "Copied", description: "Temporary password copied to clipboard" })
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex sm:justify-end gap-2">
+                <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetSubmitting} className="rounded-xl">
+                  Close
+                </Button>
+                <Button
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px] shadow-sm shadow-indigo-600/20"
+                  onClick={async () => {
+                    if (!resetEmployee) return
+                    setResetSubmitting(true)
+                    setResetError("")
+                    try {
+                      const payload =
+                        resetMode === "generate"
+                          ? { generate_random: true }
+                          : { generate_random: false, new_password: resetPassword }
+                      const resp = await api.post<{ temp_password?: string }>(
+                        `/api/v1/admin/users/${resetEmployee.id}/reset-password`,
+                        payload
+                      )
+                      const tmp = (resp && (resp as any).temp_password) || undefined
+                      if (tmp) {
+                        setTempPassword(tmp)
+                      }
+                      toast({
+                        title: "Password reset",
+                        description: tmp ? "Temporary password generated." : "Password set successfully.",
+                      })
+                    } catch (err) {
+                      if (err instanceof ApiClientError) {
+                        setResetError(err.data.detail || "Failed to reset password")
+                      } else {
+                        setResetError("An unexpected error occurred")
+                      }
+                    } finally {
+                      setResetSubmitting(false)
+                    }
+                  }}
+                  disabled={resetSubmitting || (resetMode === "manual" && resetPassword.length === 0) || !!tempPassword}
+                >
+                  {resetSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : resetMode === "generate" ? "Generate Password" : "Set Password"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-        {/* Debug Panel */}
-        <DebugPanel />
+          {/* 11. Delete Confirmation Dialog */}
+          <AlertDialog
+            open={deleteOpen}
+            onOpenChange={(open) => {
+              setDeleteOpen(open)
+              if (!open) setSelectedEmployee(null)
+            }}
+          >
+            <AlertDialogContent className="rounded-2xl p-0 overflow-hidden max-w-md border-slate-200/60 dark:border-slate-800/60 shadow-xl">
+              <div className="p-8 bg-rose-50/80 dark:bg-rose-950/20 flex flex-col items-center text-center">
+                <div className="h-16 w-16 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center mb-5 text-rose-600 dark:text-rose-400 ring-8 ring-rose-50 dark:ring-rose-950/30">
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+                <AlertDialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  Deactivate Employee?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="mt-3 text-slate-600 dark:text-slate-400">
+                  Are you sure you want to deactivate <strong className="text-slate-900 dark:text-slate-200">{selectedEmployee?.name} ({selectedEmployee?.emp_code})</strong>? This will revoke their access to the system immediately. Historical data is preserved.
+                </AlertDialogDescription>
+              </div>
+              <AlertDialogFooter className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex sm:justify-between gap-2">
+                <AlertDialogCancel disabled={submitting} className="rounded-xl flex-1 sm:flex-none border-slate-200 dark:border-slate-800">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmDelete}
+                  disabled={submitting}
+                  className="rounded-xl flex-1 sm:flex-none bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/20 border-0"
+                >
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deactivating</>
+                  ) : (
+                    "Yes, Deactivate"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <DebugPanel />
+        </div>
       </PageContainer>
     </RequireRole>
   )

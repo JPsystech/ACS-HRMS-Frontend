@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
@@ -101,74 +102,109 @@ export default function DashboardPage() {
   }, [data])
 
   return (
-    <PageContainer
-      title="Dashboard"
-      description={
-         <div className="flex flex-col gap-1">
-           <p>Welcome back, {user?.emp_code || "User"}! Here&apos;s what&apos;s happening today.</p>
-           <div className="flex items-center gap-1.5 text-green-600">
-             <CheckCircle2 className="h-4 w-4" />
-             <span className="text-xs font-semibold uppercase tracking-wider">Normal Login</span>
-           </div>
-         </div>
-       }
-    >
-      <div className="mb-6 space-y-3">
-        <h2 className="text-xl font-semibold">🎉 Culture & Birthdays</h2>
+    <PageContainer>
+      {/* Premium Glassmorphic Hero */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-2xl p-6 md:p-10 text-white shadow-2xl bg-gradient-to-br from-indigo-900 via-purple-800 to-indigo-800"
+      >
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl pointer-events-none" />
+        {/* Decorative elements */}
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-purple-500/30 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/30 rounded-full blur-[80px] pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white/95">
+              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {user?.emp_code || "User"} 👋
+            </h1>
+            <p className="text-indigo-100/80 text-lg max-w-xl leading-relaxed">
+              Here is your centralized control center. Monitor attendance, leaves, and team culture at a glance.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+      <div className="mb-8 space-y-4">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <span>✨</span> Culture & Celebrations
+        </h2>
         {birthdayError && (
-          <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm">
+          <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm backdrop-blur-md">
             Birthday API error: {birthdayError}
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Today’s Birthdays {birthdaysToday ? "" : "(placeholder)"}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {birthdaysToday ? (
-                birthdaysToday.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No birthdays today</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <motion.div whileHover={{ y: -4, transition: { duration: 0.2 } }}>
+            <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
+                <span className="text-8xl">🎂</span>
+              </div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-lg text-rose-800 dark:text-rose-300 font-bold">
+                  Today's Birthdays
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                {birthdaysToday ? (
+                  birthdaysToday.length === 0 ? (
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">No birthdays today.</p>
+                  ) : (
+                    <ul className="text-sm space-y-2">
+                      {birthdaysToday.slice(0, 5).map((b: any, i: number) => (
+                        <motion.li
+                          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
+                          key={b.employee_id}
+                          className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-black/20 p-2 rounded-lg"
+                        >
+                          <span className="text-rose-500">🎉</span> {b.name} {b.department ? <span className="text-xs text-slate-500">({b.department})</span> : ""}
+                        </motion.li>
+                      ))}
+                      {birthdaysToday.length > 5 && (
+                        <li className="text-slate-500 font-medium pt-1">+{birthdaysToday.length - 5} more</li>
+                      )}
+                    </ul>
+                  )
                 ) : (
-                  <ul className="text-sm space-y-1">
-                    {birthdaysToday.slice(0, 5).map((b: any) => (
-                      <li key={b.employee_id}>
-                        {b.name} {b.department ? `• ${b.department}` : ""}
-                      </li>
-                    ))}
-                    {birthdaysToday.length > 5 && (
-                      <li className="text-muted-foreground">+{birthdaysToday.length - 5} more</li>
-                    )}
-                  </ul>
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                {upcomingCount !== null ? (
-                  <>
-                    🎂 {upcomingCount} birthdays this week
-                  </>
-                ) : (
-                  "🎂 0 birthdays this week (placeholder badge)"
+                  <Skeleton className="h-20 w-full bg-white/40 dark:bg-black/20" />
                 )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent
-              className={upcomingCount ? "cursor-pointer hover:bg-muted/50 rounded-md" : ""}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div whileHover={{ y: -4, transition: { duration: 0.2 } }}>
+            <Card
+              className={cn(
+                "h-full border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 overflow-hidden relative group",
+                upcomingCount ? "cursor-pointer" : ""
+              )}
               onClick={() => {
                 if (upcomingCount && upcomingCount > 0) setUpcomingOpen(true)
               }}
             >
-              <p className="text-sm text-muted-foreground">
-                {upcomingCount !== null ? "Upcoming birthdays over next 7 days" : "Will show number when API is available"}
-              </p>
-            </CardContent>
-          </Card>
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
+                <span className="text-8xl">📅</span>
+              </div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-lg text-indigo-800 dark:text-indigo-300 font-bold">
+                  {upcomingCount !== null ? (
+                    `Upcoming Birthdays (${upcomingCount})`
+                  ) : (
+                    "Upcoming Birthdays"
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-black/20 p-3 rounded-lg inline-block">
+                  {upcomingCount !== null ? (
+                    <span>Next 7 days overview &rarr;</span>
+                  ) : (
+                    <Skeleton className="h-5 w-32 bg-white/40 dark:bg-black/20" />
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
       </div>
       {error && (
@@ -272,11 +308,13 @@ export default function DashboardPage() {
           </div>
 
           {/* Charts & Widgets Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
             {/* Pending Leaves Table */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-4">
-                <CardTitle className="text-lg font-semibold">Pending Leave Approvals</CardTitle>
+            <Card className="border border-slate-200/60 dark:border-slate-800/60 shadow-xl shadow-indigo-100/20 dark:shadow-indigo-900/10 rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 transition-all hover:shadow-2xl">
+              <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                <CardTitle className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                  Pending Leave Approvals
+                </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -336,8 +374,8 @@ export default function DashboardPage() {
                                   leave.status === "PENDING"
                                     ? "secondary"
                                     : leave.status === "APPROVED"
-                                    ? "default"
-                                    : "destructive"
+                                      ? "default"
+                                      : "destructive"
                                 }
                                 className="animate-pulse"
                               >
@@ -354,9 +392,11 @@ export default function DashboardPage() {
             </Card>
 
             {/* Holidays (This Month + Next) */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-4">
-                <CardTitle className="text-lg font-semibold">Upcoming Holidays</CardTitle>
+            <Card className="border border-slate-200/60 dark:border-slate-800/60 shadow-xl shadow-purple-100/20 dark:shadow-purple-900/10 rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 transition-all hover:shadow-2xl">
+              <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                <CardTitle className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400">
+                  Upcoming Holidays
+                </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -449,7 +489,7 @@ export default function DashboardPage() {
           description="Unable to load dashboard data. Please try refreshing the page."
         />
       )}
-      
+
       <Dialog open={upcomingOpen} onOpenChange={setUpcomingOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
