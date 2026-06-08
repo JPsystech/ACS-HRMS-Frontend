@@ -578,6 +578,7 @@ export default function HolidaysPage() {
                   disabled={submitting}
                 />
                 {imagePreview && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imagePreview}
                     alt="Preview"
@@ -674,6 +675,7 @@ export default function HolidaysPage() {
                   disabled={submitting}
                 />
                 {(imagePreview || selectedHoliday?.image_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imagePreview || (selectedHoliday?.image_url ?? "")}
                     alt="Current"

@@ -99,6 +99,7 @@ export default function ProfilePage() {
         <CardContent className="flex items-center gap-6">
           <Avatar className="h-20 w-20">
             {photoUrl || preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={preview || photoUrl} alt="avatar" className="h-full w-full object-cover rounded-full" />
             ) : (
               <AvatarFallback>AV</AvatarFallback>

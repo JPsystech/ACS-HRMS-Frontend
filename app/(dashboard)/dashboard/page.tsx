@@ -142,7 +142,7 @@ export default function DashboardPage() {
               </div>
               <CardHeader className="pb-2 relative z-10">
                 <CardTitle className="text-lg text-rose-800 dark:text-rose-300 font-bold">
-                  Today's Birthdays
+                  Today&apos;s Birthdays
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">

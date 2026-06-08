@@ -314,6 +314,7 @@ export default function EmployeesPage() {
     // Debounce the search to avoid too many API calls
     const timeoutId = setTimeout(fetchManagerOptions, 300)
     return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.role, formData.department_id, managerSearch, user])
 
   // Auto-select current ADMIN user as reporting manager when options change
@@ -327,6 +328,7 @@ export default function EmployeesPage() {
         })
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [managerOptions, user, formData.reporting_manager_id])
 
 

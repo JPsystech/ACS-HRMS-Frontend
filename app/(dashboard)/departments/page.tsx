@@ -82,6 +82,7 @@ export default function DepartmentsPage() {
     if (user?.role === "HR" || user?.role === "ADMIN") {
       fetchDepartments()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchDepartments = async () => {
@@ -622,7 +623,7 @@ export default function DepartmentsPage() {
                     Deactivate Department?
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-slate-500">
-                    Are you sure you want to deactivate <strong className="text-slate-700 dark:text-slate-300">"{selectedDepartment?.name}"</strong>? This will mark the department as inactive and prevent it from being used for new employee assignment, but existing records will remain available.
+                    Are you sure you want to deactivate <strong className="text-slate-700 dark:text-slate-300">&quot;{selectedDepartment?.name}&quot;</strong>? This will mark the department as inactive and prevent it from being used for new employee assignment, but existing records will remain available.
                   </AlertDialogDescription>
                 </div>
               </div>

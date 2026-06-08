@@ -70,6 +70,7 @@ export default function WfhApprovalsPage() {
       fetchLookups()
       fetchWfh()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   // Auto-refresh when filters or status change

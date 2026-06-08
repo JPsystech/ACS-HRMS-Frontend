@@ -187,6 +187,7 @@ export default function PendingApprovalsPage() {
       fetchPendingLeaves()
       fetchPendingCorrections()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchEmployees = async () => {

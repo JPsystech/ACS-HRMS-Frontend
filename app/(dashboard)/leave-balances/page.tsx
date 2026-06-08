@@ -129,7 +129,7 @@ export default function LeaveBalancesPage() {
   useEffect(() => {
     api.get<{ id: number; name: string }[]>("/api/v1/departments").then((r) => {
       setDepartments(Array.isArray(r) ? r : [])
-    }).catch(() => {})
+    }).catch(() => { })
   }, [])
 
   // Refetch admin balances when a leave is approved/rejected/cancelled from the Leaves page
@@ -231,10 +231,10 @@ export default function LeaveBalancesPage() {
 
   const filteredRows = employeeSearch.trim()
     ? rows.filter(
-        (r) =>
-          r.employee_name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-          (r.emp_code && r.emp_code.toLowerCase().includes(employeeSearch.toLowerCase()))
-      )
+      (r) =>
+        r.employee_name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+        (r.emp_code && r.emp_code.toLowerCase().includes(employeeSearch.toLowerCase()))
+    )
     : rows
 
   const getInitials = (name: string) => {
@@ -243,14 +243,14 @@ export default function LeaveBalancesPage() {
 
   const renderLeaveWalletCell = (total: number, used: number, remaining: number, tone: 'blue' | 'emerald' | 'purple' | 'orange' | 'slate') => {
     const isExhausted = total > 0 && remaining === 0;
-    
+
     let toneClasses = "";
     if (tone === 'blue') toneClasses = "text-blue-700 dark:text-blue-400";
     if (tone === 'emerald') toneClasses = "text-emerald-700 dark:text-emerald-400";
     if (tone === 'purple') toneClasses = "text-purple-700 dark:text-purple-400";
     if (tone === 'orange') toneClasses = "text-orange-700 dark:text-orange-400";
     if (tone === 'slate') toneClasses = "text-slate-700 dark:text-slate-400";
-    
+
     return (
       <div className="flex flex-col">
         <div className="flex items-center gap-1.5 mb-0.5">
@@ -490,10 +490,10 @@ export default function LeaveBalancesPage() {
         ) : !migrationMessage && filteredRows.length === 0 ? (
           /* 6. Empty State */
           <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md p-12">
-            <EmptyState 
-              icon={Layers} 
-              title="No balances" 
-              description="No leave balance records found for the selected filters." 
+            <EmptyState
+              icon={Layers}
+              title="No balances"
+              description="No leave balance records found for the selected filters."
             />
           </Card>
         ) : !migrationMessage && (
@@ -565,9 +565,9 @@ export default function LeaveBalancesPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-300 dark:hover:bg-indigo-900/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-medium"
                             onClick={() => openDrawer(r.employee_id, r.employee_name)}
                           >
@@ -638,7 +638,7 @@ export default function LeaveBalancesPage() {
                   <div key={t.id} className="relative">
                     {/* Timeline Node */}
                     <div className={`absolute -left-[35px] h-4 w-4 rounded-full border-2 border-white dark:border-slate-950 flex items-center justify-center ${t.delta_days >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    
+
                     <div className="bg-white dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800/70 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div>
@@ -650,11 +650,10 @@ export default function LeaveBalancesPage() {
                           </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{formatDateTimeIST(t.action_at)}</p>
                         </div>
-                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-sm ${
-                          t.delta_days >= 0 
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                            : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                        }`}>
+                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-sm ${t.delta_days >= 0
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                          }`}>
                           {t.delta_days >= 0 ? <Plus className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                           {Math.abs(t.delta_days)} days
                         </div>

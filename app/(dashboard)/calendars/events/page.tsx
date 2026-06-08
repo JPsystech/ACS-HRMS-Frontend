@@ -586,6 +586,7 @@ export default function CompanyEventsPage() {
                   disabled={submitting || uploading}
                 />
                 {(imagePreview || formData.image_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imagePreview || formData.image_url || ""}
                     alt="Preview"
@@ -715,6 +716,7 @@ export default function CompanyEventsPage() {
                   disabled={submitting || uploading}
                 />
                 {(imagePreview || selectedEvent?.image_url || formData.image_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imagePreview || selectedEvent?.image_url || formData.image_url || ""}
                     alt="Current"

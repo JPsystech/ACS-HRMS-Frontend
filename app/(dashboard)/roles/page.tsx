@@ -98,6 +98,7 @@ export default function RolesPage() {
     if (user && (user.role === "HR" || user.role === "ADMIN")) {
       fetchRoles()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchRoles = async () => {
@@ -732,7 +733,7 @@ export default function RolesPage() {
                     Deactivate Role?
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-slate-500">
-                    Are you sure you want to deactivate <strong className="text-slate-700 dark:text-slate-300">"{selectedRole?.name}"</strong>? Existing employees will keep their role, but this role will no longer be selectable for new assignments.
+                    Are you sure you want to deactivate <strong className="text-slate-700 dark:text-slate-300">&quot;{selectedRole?.name}&quot;</strong>? Existing employees will keep their role, but this role will no longer be selectable for new assignments.
                   </AlertDialogDescription>
                 </div>
               </div>

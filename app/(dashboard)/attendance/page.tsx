@@ -582,18 +582,21 @@ export default function AttendancePage() {
         setTeamSummary(null)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   useEffect(() => {
     if (user && showAdminUi) {
       fetchSessions()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab, filters, showAdminUi])
 
   useEffect(() => {
     if (activeTab === "reports" && reportsSubTab === "not_punched_today" && showAdminUi) {
       fetchNotPunchedToday()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, reportsSubTab, showAdminUi, filters.department_id, filters.q])
 
   const fetchEmployees = async () => {
@@ -818,6 +821,7 @@ export default function AttendancePage() {
     if (isEmployeeOnly && user) {
       fetchMyAttendance()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEmployeeOnly, user])
 
   const [myToday, setMyToday] = useState<AdminAttendanceSessionDto | null>(null)
@@ -1050,7 +1054,7 @@ export default function AttendancePage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between p-6 relative z-10 gap-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Team Attendance Today</h3>
-                <p className="text-sm text-slate-500">Overview of your team's presence and pending punch-ins.</p>
+                <p className="text-sm text-slate-500">Overview of your team&apos;s presence and pending punch-ins.</p>
               </div>
               {teamSummary ? (
                 <div className="flex items-center gap-8 text-center bg-slate-50/80 dark:bg-slate-900/80 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -1089,7 +1093,7 @@ export default function AttendancePage() {
           <div className="space-y-6">
             <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md overflow-hidden">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800/60">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Today's Attendance</h3>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Today&apos;s Attendance</h3>
               </div>
               <CardContent className="p-6">
                 {myLoading ? (
