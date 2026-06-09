@@ -278,7 +278,7 @@ export default function OutsideApprovalsPage() {
               <ShieldAlert className="h-8 w-8" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No outside punch approvals found</h3>
-            <p className="text-slate-500 mb-6">You're all caught up!</p>
+            <p className="text-slate-500 mb-6">You&apos;re all caught up!</p>
           </Card>
         ) : (
           <Card className="rounded-2xl border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm overflow-hidden">

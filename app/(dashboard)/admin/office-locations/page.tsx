@@ -82,6 +82,7 @@ export default function OfficeLocationsPage() {
     if (user && (user.role === "HR" || user.role === "ADMIN")) {
       fetchLocations()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchLocations = async () => {
