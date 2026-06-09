@@ -57,6 +57,12 @@ const navItems: NavItem[] = [
     roles: ["HR", "ADMIN"],
   },
   {
+    title: "Office Locations",
+    href: "/admin/office-locations",
+    icon: Building2,
+    roles: ["HR", "ADMIN"],
+  },
+  {
     title: "Employees",
     href: "/employees",
     icon: Users,
@@ -71,6 +77,12 @@ const navItems: NavItem[] = [
     title: "Attendance Corrections",
     href: "/attendance/corrections",
     icon: FileText,
+    roles: ["HR", "ADMIN", "MD", "VP", "MANAGER"],
+  },
+  {
+    title: "Outside Approvals",
+    href: "/attendance/outside-approvals",
+    icon: CheckCircle,
     roles: ["HR", "ADMIN", "MD", "VP", "MANAGER"],
   },
   {

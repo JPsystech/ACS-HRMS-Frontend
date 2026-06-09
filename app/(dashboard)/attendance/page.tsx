@@ -336,6 +336,7 @@ function AttendanceTable({
                 <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Punch Out</TableHead>
                 <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Punch Out Location</TableHead>
                 <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-center">Worked</TableHead>
+                <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Loc Status</TableHead>
                 <TableHead className="font-semibold text-slate-600 dark:text-slate-300">Status</TableHead>
                 {showActions && <TableHead className="text-right font-semibold text-slate-600 dark:text-slate-300 w-[140px]">Actions</TableHead>}
               </TableRow>
@@ -424,6 +425,23 @@ function AttendanceTable({
                       </Badge>
                     ) : (
                       <span className="text-slate-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {s.location_status === "OUTSIDE_PENDING" ? (
+                      <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                        Outside (Pending)
+                      </Badge>
+                    ) : s.location_status === "OUTSIDE_APPROVED" ? (
+                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                        Outside (Approved)
+                      </Badge>
+                    ) : s.location_status === "OUTSIDE_REJECTED" ? (
+                      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                        Outside (Rejected)
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
                     )}
                   </TableCell>
                   <TableCell>

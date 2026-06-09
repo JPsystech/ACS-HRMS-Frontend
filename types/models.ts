@@ -24,6 +24,37 @@ export type DepartmentUpdate = {
 export type Role = "HR" | "MANAGER" | "EMPLOYEE" | "MD" | "ADMIN" | "VP"
 export type EmployeeRole = Role
 export type WorkMode = "OFFICE" | "SITE"
+export type PunchLocationPolicy = "OFFICE_FIXED" | "FIELD_ANYWHERE" | "HYBRID"
+
+export type OfficeLocation = {
+  id: number
+  name: string
+  address?: string | null
+  latitude: number
+  longitude: number
+  radius_meters: number
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export type OfficeLocationCreate = {
+  name: string
+  address?: string | null
+  latitude: number
+  longitude: number
+  radius_meters?: number
+  is_active?: boolean
+}
+
+export type OfficeLocationUpdate = {
+  name?: string
+  address?: string | null
+  latitude?: number
+  longitude?: number
+  radius_meters?: number
+  is_active?: boolean
+}
 
 // Dynamic role master as returned by /api/v1/roles
 export type RoleDefinition = {
@@ -49,6 +80,8 @@ export type Employee = {
   }
   reporting_manager_id: number | null
   work_mode: WorkMode
+  punch_location_policy?: PunchLocationPolicy
+  office_location_id?: number | null
   join_date?: string
   active: boolean
   created_at: string
@@ -63,6 +96,8 @@ export type EmployeeCreate = {
   department_id: number
   reporting_manager_id?: number | null
   work_mode?: WorkMode | null
+  punch_location_policy?: PunchLocationPolicy
+  office_location_id?: number | null
   join_date: string
   password?: string
   active: boolean
@@ -75,6 +110,8 @@ export type EmployeeUpdate = {
   department_id?: number
   reporting_manager_id?: number | null
   work_mode?: WorkMode | null
+  punch_location_policy?: PunchLocationPolicy
+  office_location_id?: number | null
   join_date?: string
   active?: boolean
 }
@@ -355,6 +392,18 @@ export type AttendanceSessionDto = {
   punch_in_geo?: PunchGeo | Record<string, unknown> | null
   punch_out_geo?: PunchGeo | Record<string, unknown> | null
   remarks?: string | null
+  outside_reason_type?: string | null
+  outside_reason_details?: string | null
+  outside_approval_status?: "PENDING" | "APPROVED" | "REJECTED" | null
+  outside_approved_by?: number | null
+  outside_approved_at?: string | null
+  outside_approval_remarks?: string | null
+  distance_from_office?: number | null
+  is_wfh_punch?: boolean
+  wfh_request_id?: number | null
+  location_status?: string | null
+  work_mode_at_punch?: string | null
+  gps_accuracy?: number | null
   created_at: string
   updated_at: string
 }

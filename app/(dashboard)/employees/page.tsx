@@ -15,6 +15,8 @@ import {
   RoleDefinition,
   WorkMode,
   ManagerOptions,
+  OfficeLocation,
+  PunchLocationPolicy,
 } from "@/types/models"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -51,7 +53,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Edit, Trash2, Loader2, Search, Users, UserCheck, UserX, Building2, Filter, RotateCcw, Smartphone, CalendarDays, BadgeCheck, BriefcaseBusiness, ShieldCheck, KeyRound, AlertTriangle, UserPlus } from "lucide-react"
+import { Plus, Edit, Trash2, Loader2, Search, Users, UserCheck, UserX, Building2, Filter, RotateCcw, Smartphone, CalendarDays, BadgeCheck, BriefcaseBusiness, ShieldCheck, KeyRound, AlertTriangle, UserPlus, MapPin } from "lucide-react"
 import { format } from "date-fns"
 
 const MIN_PASSWORD_LENGTH = 6
@@ -68,6 +70,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<RoleDefinition[]>([])
+  const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([])
   const [managerOptions, setManagerOptions] = useState<ManagerOptions[]>([])
   const [managerSearch, setManagerSearch] = useState("")
   const [managerLoading, setManagerLoading] = useState(false)
@@ -118,16 +121,18 @@ export default function EmployeesPage() {
     setLoading(true)
     setApiError("")
     try {
-      // Fetch employees, departments, and roles in parallel
-      const [employeesData, departmentsData, rolesData] = await Promise.all([
+      // Fetch employees, departments, roles, and office locations in parallel
+      const [employeesData, departmentsData, rolesData, locationsData] = await Promise.all([
         api.get<Employee[]>("/api/v1/employees"),
         api.get<Department[]>("/api/v1/departments"),
         api.get<RoleDefinition[]>("/api/v1/roles").catch(() => []),
+        api.get<OfficeLocation[]>("/api/v1/office-locations").catch(() => []),
       ])
 
       setEmployees(employeesData || [])
       setDepartments(departmentsData || [])
       setRoles(Array.isArray(rolesData) ? rolesData : [])
+      setOfficeLocations(Array.isArray(locationsData) ? locationsData : [])
 
       // Debug logging to check what's being returned
 
@@ -174,6 +179,8 @@ export default function EmployeesPage() {
       department_id: departments[0]?.id || 0,
       reporting_manager_id: defaultRank === 1 ? null : null,
       work_mode: "OFFICE",
+      punch_location_policy: "OFFICE_FIXED",
+      office_location_id: null,
       join_date: new Date().toISOString().split("T")[0],
       password: "",
       active: true,
@@ -195,6 +202,8 @@ export default function EmployeesPage() {
       department_id: employee.department_id || 0,
       reporting_manager_id: employee.reporting_manager_id,
       work_mode: employee.work_mode || "OFFICE",
+      punch_location_policy: employee.punch_location_policy || "OFFICE_FIXED",
+      office_location_id: employee.office_location_id || null,
       join_date: employee.join_date
         ? employee.join_date.split("T")[0]
         : new Date().toISOString().split("T")[0],
@@ -452,6 +461,8 @@ export default function EmployeesPage() {
         department_id: formData.department_id,
         reporting_manager_id: formData.reporting_manager_id,
         work_mode: formData.work_mode,
+        punch_location_policy: formData.punch_location_policy,
+        office_location_id: formData.office_location_id,
         join_date: formData.join_date,
         active: formData.active,
         // Only include password if provided and valid
@@ -512,8 +523,10 @@ export default function EmployeesPage() {
         mobile_number: formData.mobile_number?.trim() || null,
         role: formData.role,
         department_id: formData.department_id,
-
+        reporting_manager_id: formData.reporting_manager_id,
         work_mode: formData.work_mode,
+        punch_location_policy: formData.punch_location_policy,
+        office_location_id: formData.office_location_id,
         join_date: formData.join_date,
         active: formData.active,
       }
@@ -1190,30 +1203,99 @@ export default function EmployeesPage() {
                       </div>
                     )}
                     
+                  </div>
+                </div>
+
+                {/* Section C: Attendance Location Settings */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Attendance Location Settings</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                      <Label htmlFor="create-work_mode" className="text-sm font-medium">Punch Policy</Label>
+                      <Label htmlFor="create-work_mode" className="text-sm font-medium">Work Mode</Label>
                       <Select
                         value={formData.work_mode || "OFFICE"}
-                        onValueChange={(value: WorkMode) => setFormData({ ...formData, work_mode: value })}
+                        onValueChange={(value: WorkMode) => {
+                          const newPolicy = value === "SITE" ? "FIELD_ANYWHERE" : "OFFICE_FIXED"
+                          setFormData({ ...formData, work_mode: value, punch_location_policy: newPolicy, office_location_id: value === "SITE" ? null : formData.office_location_id })
+                        }}
                         disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select work mode" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="OFFICE">Office Employee</SelectItem>
+                          <SelectItem value="SITE">Site / Field Employee</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="create-punch_policy" className="text-sm font-medium">Punch Location Policy</Label>
+                      <Select
+                        value={formData.punch_location_policy || "OFFICE_FIXED"}
+                        onValueChange={(value: PunchLocationPolicy) => setFormData({ ...formData, punch_location_policy: value })}
+                        disabled={submitting || formData.work_mode === "SITE"}
                       >
                         <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
                           <SelectValue placeholder="Select punch policy" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="OFFICE">Office</SelectItem>
-                          <SelectItem value="SITE">Site / Field</SelectItem>
+                          <SelectItem value="OFFICE_FIXED">Strict Office Geofence</SelectItem>
+                          <SelectItem value="FIELD_ANYWHERE">Anywhere (Field)</SelectItem>
+                          <SelectItem value="HYBRID">Hybrid (Office + Field)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="create-office" className="text-sm font-medium">
+                        Default Office Location 
+                        {(formData.punch_location_policy === "OFFICE_FIXED" || formData.punch_location_policy === "HYBRID") && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      <Select
+                        value={formData.office_location_id?.toString() || "none"}
+                        onValueChange={(value) => setFormData({ ...formData, office_location_id: value === "none" ? null : parseInt(value) })}
+                        disabled={submitting || formData.punch_location_policy === "FIELD_ANYWHERE"}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select office location" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">No Office Assigned</SelectItem>
+                          {officeLocations.filter(loc => loc.is_active).map(loc => (
+                            <SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {formData.office_location_id && (
+                        <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg text-xs text-slate-500">
+                          {(() => {
+                            const selectedLoc = officeLocations.find(l => l.id === formData.office_location_id);
+                            if (!selectedLoc) return null;
+                            return (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Radius:</span> {selectedLoc.radius_meters}m</div>
+                                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Address:</span> <span className="line-clamp-1">{selectedLoc.address || "N/A"}</span></div>
+                                <div className="col-span-2"><span className="font-semibold text-slate-700 dark:text-slate-300">Coordinates:</span> {selectedLoc.latitude}, {selectedLoc.longitude}</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Section C: Account Access */}
+                {/* Section D: Account Access */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
                     <ShieldCheck className="h-4 w-4 text-slate-400" />
-                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Account Access</h4>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">D. Account Access</h4>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="space-y-2">
@@ -1444,30 +1526,99 @@ export default function EmployeesPage() {
                       </div>
                     )}
                     
+                  </div>
+                </div>
+
+                {/* Section C: Attendance Location Settings */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Attendance Location Settings</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-work_mode" className="text-sm font-medium">Punch Policy</Label>
+                      <Label htmlFor="edit-work_mode" className="text-sm font-medium">Work Mode</Label>
                       <Select
                         value={formData.work_mode || "OFFICE"}
-                        onValueChange={(value: WorkMode) => setFormData({ ...formData, work_mode: value })}
+                        onValueChange={(value: WorkMode) => {
+                          const newPolicy = value === "SITE" ? "FIELD_ANYWHERE" : "OFFICE_FIXED"
+                          setFormData({ ...formData, work_mode: value, punch_location_policy: newPolicy, office_location_id: value === "SITE" ? null : formData.office_location_id })
+                        }}
                         disabled={submitting}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select work mode" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="OFFICE">Office Employee</SelectItem>
+                          <SelectItem value="SITE">Site / Field Employee</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-punch_policy" className="text-sm font-medium">Punch Location Policy</Label>
+                      <Select
+                        value={formData.punch_location_policy || "OFFICE_FIXED"}
+                        onValueChange={(value: PunchLocationPolicy) => setFormData({ ...formData, punch_location_policy: value })}
+                        disabled={submitting || formData.work_mode === "SITE"}
                       >
                         <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
                           <SelectValue placeholder="Select punch policy" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="OFFICE">Office</SelectItem>
-                          <SelectItem value="SITE">Site / Field</SelectItem>
+                          <SelectItem value="OFFICE_FIXED">Strict Office Geofence</SelectItem>
+                          <SelectItem value="FIELD_ANYWHERE">Anywhere (Field)</SelectItem>
+                          <SelectItem value="HYBRID">Hybrid (Office + Field)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="edit-office" className="text-sm font-medium">
+                        Default Office Location 
+                        {(formData.punch_location_policy === "OFFICE_FIXED" || formData.punch_location_policy === "HYBRID") && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      <Select
+                        value={formData.office_location_id?.toString() || "none"}
+                        onValueChange={(value) => setFormData({ ...formData, office_location_id: value === "none" ? null : parseInt(value) })}
+                        disabled={submitting || formData.punch_location_policy === "FIELD_ANYWHERE"}
+                      >
+                        <SelectTrigger className="rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                          <SelectValue placeholder="Select office location" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">No Office Assigned</SelectItem>
+                          {officeLocations.filter(loc => loc.is_active || loc.id === formData.office_location_id).map(loc => (
+                            <SelectItem key={loc.id} value={loc.id.toString()}>{loc.name} {!loc.is_active && "(Inactive)"}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {formData.office_location_id && (
+                        <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg text-xs text-slate-500">
+                          {(() => {
+                            const selectedLoc = officeLocations.find(l => l.id === formData.office_location_id);
+                            if (!selectedLoc) return null;
+                            return (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Radius:</span> {selectedLoc.radius_meters}m</div>
+                                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Address:</span> <span className="line-clamp-1">{selectedLoc.address || "N/A"}</span></div>
+                                <div className="col-span-2"><span className="font-semibold text-slate-700 dark:text-slate-300">Coordinates:</span> {selectedLoc.latitude}, {selectedLoc.longitude}</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Section C: Account Access */}
+                {/* Section D: Account Access */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
                     <ShieldCheck className="h-4 w-4 text-slate-400" />
-                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">C. Account Access</h4>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">D. Account Access</h4>
                   </div>
                   <div className="flex items-center space-x-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <Switch
