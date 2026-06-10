@@ -663,7 +663,7 @@ export default function WfhApprovalsPage() {
                                   </div>
                                   {wfh.approval_remark && (
                                     <div className="text-[11px] text-slate-600 dark:text-slate-400 italic truncate max-w-[200px]" title={wfh.approval_remark}>
-                                      "{wfh.approval_remark}"
+                                      &quot;{wfh.approval_remark}&quot;
                                     </div>
                                   )}
                                 </div>
