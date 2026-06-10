@@ -6,7 +6,7 @@ import { api, ApiClientError } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Employee, Department, RoleDefinition } from "@/types/models"
 import { PageContainer } from "@/components/ui/page-container"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import {
   AnimatedTable,
@@ -29,7 +29,32 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Check, X, RefreshCw, Loader2 } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import {
+  Check,
+  X,
+  RefreshCw,
+  Loader2,
+  Home,
+  Laptop,
+  ClipboardCheck,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  CalendarX,
+  CalendarDays,
+  Building2,
+  AlertTriangle,
+  RotateCcw,
+  Search,
+  Users,
+  MessageSquareText,
+  ShieldCheck,
+  BadgeCheck,
+  FileClock,
+  ChevronRight
+} from "lucide-react"
 import { format } from "date-fns"
 
 type WfhStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
@@ -51,6 +76,7 @@ type WfhRequest = {
 export default function WfhApprovalsPage() {
   const { user } = useAuthStore()
   const { toast } = useToast()
+
   const [wfhRequests, setWfhRequests] = useState<WfhRequest[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
@@ -59,6 +85,7 @@ export default function WfhApprovalsPage() {
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState<string>("")
   const [submittingId, setSubmittingId] = useState<number | null>(null)
+
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [selectedWfh, setSelectedWfh] = useState<WfhRequest | null>(null)
@@ -73,7 +100,6 @@ export default function WfhApprovalsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  // Auto-refresh when filters or status change
   useEffect(() => {
     if (!user) return
     fetchWfh()
@@ -101,7 +127,6 @@ export default function WfhApprovalsPage() {
     setApiError("")
     try {
       const params = new URLSearchParams()
-      // For the dedicated pending view, use the /pending endpoint (backend already scopes by role)
       const usePendingEndpoint = statusFilter === "PENDING"
       if (!usePendingEndpoint && statusFilter !== "ALL") {
         params.set("status", statusFilter)
@@ -119,23 +144,10 @@ export default function WfhApprovalsPage() {
       setWfhRequests(items)
     } catch (err) {
       if (err instanceof ApiClientError) {
-        const detail =
-          typeof err.data?.detail === "string"
-            ? err.data.detail
-            : "Failed to load WFH requests"
+        const detail = typeof err.data?.detail === "string" ? err.data.detail : "Failed to load WFH requests"
         setApiError(detail)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: detail,
-        })
       } else {
         setApiError("Failed to load WFH requests")
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load WFH requests",
-        })
       }
       setWfhRequests([])
     } finally {
@@ -143,194 +155,90 @@ export default function WfhApprovalsPage() {
     }
   }
 
-  const getEmployeeLabel = (employeeId: number) => {
-    const emp = employees.find((e) => e.id === employeeId)
-    if (!emp) return `Employee #${employeeId}`
-    const roleName = emp.role
-    const roleDef = roles.find((r) => r.name === roleName)
-    const wfhBadge =
-      roleDef && roleDef.wfh_enabled ? "WFH enabled" : "WFH disabled"
-    return `${emp.name} (${emp.emp_code})${roleDef ? ` – ${roleName}` : ""}${
-      roleDef ? ` (${wfhBadge})` : ""
-    }`
+  const getInitials = (name?: string | null) => {
+    if (!name) return "??"
+    return name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
   }
 
-  const getDepartmentName = (departmentId?: number | null, employeeId?: number, wfhRequest?: any) => {
-    // 1) First check if the WFH request already has department information through employee relationship
-    if (wfhRequest?.employee?.department?.name) {
-      return wfhRequest.employee.department.name
-    }
-    
-    // 2) Use department_id from the WFH request if present
-    if (departmentId && typeof departmentId === "number") {
+  const getEmployeeById = (employeeId: number) => {
+    return employees.find((e) => e.id === employeeId)
+  }
+
+  const getEmployeeDisplay = (employeeId: number) => {
+    const emp = getEmployeeById(employeeId)
+    return emp ? emp.name : `Employee #${employeeId}`
+  }
+
+  const getDepartmentDisplay = (departmentId?: number | null, employeeId?: number, wfhRequest?: any) => {
+    if (wfhRequest?.employee?.department?.name) return wfhRequest.employee.department.name
+    if (departmentId != null) {
       const dept = departments.find((d) => d.id === departmentId)
       if (dept) return dept.name
     }
-
-    if (employeeId == null) return "-"
-
-    // 3) Use the employee's own department if set
-    const emp = employees.find((e) => e.id === employeeId)
+    if (employeeId == null) return "—"
+    const emp = getEmployeeById(employeeId)
     if (emp?.department_id) {
       const dept = departments.find((d) => d.id === emp.department_id)
       if (dept) return dept.name
     }
-
-    // 4) Fallback: inherit department from reporting manager (useful for VP/MD without explicit dept)
     if (emp?.reporting_manager_id) {
-      const mgr = employees.find((e) => e.id === emp.reporting_manager_id)
+      const mgr = getEmployeeById(emp.reporting_manager_id)
       if (mgr?.department_id) {
         const dept = departments.find((d) => d.id === mgr.department_id)
         if (dept) return dept.name
       }
     }
-
-    return "-"
+    return "—"
   }
 
-  const parseDateSafe = (value?: string | null): Date | null => {
-    if (!value) return null
-    const d = new Date(value)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-
-  const formatRange = (from: string, to?: string | null) => {
-    const fromDate = parseDateSafe(from)
-    const toDate = parseDateSafe(to || undefined)
-
-    if (!fromDate && !toDate) {
-      return "-"
+  const getStatusBadgeClass = (status: WfhStatus) => {
+    switch (status) {
+      case "PENDING": return "bg-amber-50 text-amber-700 border-amber-200"
+      case "APPROVED": return "bg-emerald-50 text-emerald-700 border-emerald-200"
+      case "REJECTED": return "bg-red-50 text-red-700 border-red-200"
+      case "CANCELLED": return "bg-slate-50 text-slate-700 border-slate-200"
+      default: return "bg-slate-50 text-slate-700 border-slate-200"
     }
-
-    // Single-day or invalid 'to' – show only one date
-    if (!toDate || !to || (fromDate && toDate && fromDate.getTime() === toDate.getTime())) {
-      const d = fromDate || toDate!
-      return format(d, "EEE, MMM dd, yyyy")
-    }
-
-    // Proper range
-    return `${format(fromDate || toDate!, "MMM dd, yyyy")} – ${format(
-      toDate,
-      "MMM dd, yyyy"
-    )}`
   }
 
-  const formatRequestedAt = (requestedAt?: string | null) => {
-    if (!requestedAt) return "-"
-    const dt = new Date(requestedAt)
-    return format(dt, "dd MMM yyyy, hh:mm a")
-  }
-
-  const renderDecisionSummary = (wfh: WfhRequest) => {
-    if (wfh.status === "PENDING") {
-      return (
-        <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-          <span className="font-medium">Requested At:</span>
-          <span>{formatRequestedAt(wfh.applied_at)}</span>
-        </div>
-      )
-    }
-
-    if (!wfh.approved_at) return "-"
-
-    const approver = employees.find((e) => e.id === wfh.approved_by)
-    const by = approver ? approver.name : `ID: ${wfh.approved_by}`
-    const role = wfh.approved_role || ""
-    const at = format(new Date(wfh.approved_at), "dd/MM/yyyy HH:mm")
-    const remark = wfh.approval_remark || ""
+  const renderStatusBadge = (status: WfhStatus) => {
+    let Icon = Clock
+    if (status === "APPROVED") Icon = CheckCircle2
+    if (status === "REJECTED") Icon = XCircle
+    if (status === "CANCELLED") Icon = Ban
 
     return (
-      <div className="flex flex-col gap-1 text-[11px] leading-snug min-w-[150px]">
-        <div className="font-semibold text-foreground flex items-center gap-1.5">
-          <span className={wfh.status === "APPROVED" ? "text-green-600" : "text-red-600"}>
-            {wfh.status === "APPROVED" ? "Approved" : "Rejected"}
-          </span>
-          <span className="text-muted-foreground font-normal">by</span>
-          <span className="truncate max-w-[80px]" title={by}>{by}</span>
-          {role && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-muted/50">
-              {role}
-            </Badge>
-          )}
-        </div>
-        <div className="text-muted-foreground/80">
-          <span className="font-medium">At:</span> {at}
-        </div>
-        {remark && (
-          <div className="mt-0.5 text-foreground italic truncate max-w-[150px]" title={remark}>
-            <span className="font-semibold not-italic text-muted-foreground mr-1">Remark:</span>
-            {remark}
-          </div>
-        )}
-      </div>
+      <Badge variant="outline" className={`${getStatusBadgeClass(status)} font-medium shadow-none gap-1 px-2 py-0.5`}>
+        <Icon className="h-3 w-3" />
+        {status}
+      </Badge>
     )
+  }
+
+  const formatDateSafe = (value?: string | null) => {
+    if (!value) return "—"
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? "—" : format(d, "MMM dd, yyyy")
+  }
+
+  const formatDateTimeSafe = (value?: string | null) => {
+    if (!value) return "—"
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? "—" : format(d, "dd MMM yyyy, hh:mm a")
   }
 
   const canActOnRequest = (wfh: WfhRequest) => {
     if (!user) return false
-
-    // MD / VP / HR / ADMIN: can act on any request they see
-    if (user.role === "MD" || user.role === "VP" || user.role === "HR" || user.role === "ADMIN") return true
-
-    const emp = employees.find((e) => e.id === wfh.employee_id)
+    if (["MD", "VP", "HR", "ADMIN"].includes(user.role)) return true
+    const emp = getEmployeeById(wfh.employee_id)
     if (!emp) return false
-
-    // MANAGER and other team roles: only direct reports
     return emp.reporting_manager_id === user.id
   }
-
-  const filteredRequests =
-    statusFilter === "ALL"
-      ? wfhRequests
-      : wfhRequests.filter((w) => w.status === statusFilter)
 
   const handleOpenApprove = (wfh: WfhRequest) => {
     setSelectedWfh(wfh)
     setRemarks("")
     setApproveOpen(true)
-  }
-
-  const handleConfirmApprove = async () => {
-    if (!selectedWfh) return
-    setSubmittingId(selectedWfh.id)
-    try {
-      const body = remarks.trim() ? { remarks: remarks.trim() } : {}
-      await api.post(`/api/v1/wfh/${selectedWfh.id}/approve`, body)
-      toast({
-        title: "WFH approved",
-        description: "WFH request approved successfully.",
-      })
-      setApproveOpen(false)
-      setSelectedWfh(null)
-      setRemarks("")
-      // Notify other dashboards (e.g. WFH balances) to refresh
-      window.dispatchEvent(new Event("wfh-action-done"))
-      await fetchWfh()
-    } catch (err) {
-      if (err instanceof ApiClientError) {
-        if (err.status === 403) {
-          toast({
-            variant: "destructive",
-            title: "Not authorized",
-            description: "Only reporting manager or HR can approve this request",
-          })
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: err.data.detail || "Failed to approve WFH request",
-          })
-        }
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to approve WFH request",
-        })
-      }
-    } finally {
-      setSubmittingId(null)
-    }
   }
 
   const handleOpenReject = (wfh: WfhRequest) => {
@@ -339,19 +247,40 @@ export default function WfhApprovalsPage() {
     setRejectOpen(true)
   }
 
+  const handleConfirmApprove = async () => {
+    if (!selectedWfh) return
+    setSubmittingId(selectedWfh.id)
+    try {
+      const body = remarks.trim() ? { remarks: remarks.trim() } : {}
+      await api.post(`/api/v1/wfh/${selectedWfh.id}/approve`, body)
+      toast({ title: "WFH approved", description: "WFH request approved successfully." })
+      setApproveOpen(false)
+      setSelectedWfh(null)
+      setRemarks("")
+      window.dispatchEvent(new Event("wfh-action-done"))
+      await fetchWfh()
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        if (err.status === 403) {
+          toast({ variant: "destructive", title: "Not authorized", description: "Only reporting manager or HR can approve this request" })
+        } else {
+          toast({ variant: "destructive", title: "Error", description: err.data.detail || "Failed to approve WFH request" })
+        }
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Failed to approve WFH request" })
+      }
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
   const handleConfirmReject = async () => {
     if (!selectedWfh) return
     setSubmittingId(selectedWfh.id)
     try {
-      // If backend accepts remarks, send them; otherwise send empty body
-      const body = remarks.trim()
-        ? { remarks: remarks.trim() }
-        : {}
+      const body = remarks.trim() ? { remarks: remarks.trim() } : {}
       await api.post(`/api/v1/wfh/${selectedWfh.id}/reject`, body)
-      toast({
-        title: "WFH rejected",
-        description: "WFH request rejected successfully.",
-      })
+      toast({ title: "WFH rejected", description: "WFH request rejected successfully." })
       setRejectOpen(false)
       setSelectedWfh(null)
       setRemarks("")
@@ -360,67 +289,174 @@ export default function WfhApprovalsPage() {
     } catch (err) {
       if (err instanceof ApiClientError) {
         if (err.status === 403) {
-          toast({
-            variant: "destructive",
-            title: "Not authorized",
-            description: "Only reporting manager or HR can approve this request",
-          })
+          toast({ variant: "destructive", title: "Not authorized", description: "Only reporting manager or HR can approve this request" })
         } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: err.data.detail || "Failed to reject WFH request",
-          })
+          toast({ variant: "destructive", title: "Error", description: err.data.detail || "Failed to reject WFH request" })
         }
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to reject WFH request",
-        })
+        toast({ variant: "destructive", title: "Error", description: "Failed to reject WFH request" })
       }
     } finally {
       setSubmittingId(null)
     }
   }
 
-  return (
-    <PageContainer
-      title="WFH Approvals"
-      description="Review and approve or reject Work From Home requests."
-    >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+  const resetFilters = () => {
+    setFilters({})
+    setStatusFilter("ALL")
+  }
+
+  const renderMetricCard = (label: string, value: number, icon: React.ReactNode, tone: string) => {
+    const toneMap: Record<string, string> = {
+      slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+      amber: "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",
+      emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400",
+      red: "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400",
+      orange: "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400",
+    }
+
+    return (
+      <Card className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+        <CardContent className="flex items-center gap-4 p-5">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneMap[tone] || toneMap.slate}`}>
+            {icon}
+          </div>
           <div>
-            <p className="text-sm text-muted-foreground">
-              Manage WFH requests for your team by status.
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderLoadingSkeleton = () => (
+    <Card className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md p-6">
+      <Skeleton className="h-8 w-64 mb-6 rounded-xl" />
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-xl" />
+        ))}
+      </div>
+    </Card>
+  )
+
+  const renderWfhSummaryCard = (wfh: WfhRequest | null) => {
+    if (!wfh) return null
+    const emp = getEmployeeById(wfh.employee_id)
+    return (
+      <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 border border-slate-100 dark:border-slate-800 space-y-3 mb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-bold text-slate-900 dark:text-slate-100">{emp?.name || `Employee #${wfh.employee_id}`}</p>
+            <p className="text-xs font-mono text-slate-500">{emp?.emp_code || "—"}</p>
+          </div>
+          {renderStatusBadge(wfh.status)}
+        </div>
+        <div className="grid grid-cols-2 gap-y-3 text-sm">
+          <div>
+            <p className="text-xs text-slate-500">Department</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300">{getDepartmentDisplay(wfh.department_id, wfh.employee_id, wfh)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Request Date</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300">{formatDateSafe(wfh.request_date)}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-xs text-slate-500">Reason</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
+              {wfh.reason || "No reason provided"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-              {/* Department filter */}
+          <div className="col-span-2">
+            <p className="text-xs text-slate-500">Applied At</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300">{formatDateTimeSafe(wfh.applied_at)}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const filteredRequests = statusFilter === "ALL" ? wfhRequests : wfhRequests.filter((w) => w.status === statusFilter)
+
+  const metrics = {
+    total: wfhRequests.length,
+    pending: wfhRequests.filter(r => r.status === "PENDING").length,
+    approved: wfhRequests.filter(r => r.status === "APPROVED").length,
+    rejected: wfhRequests.filter(r => r.status === "REJECTED").length,
+    cancelled: wfhRequests.filter(r => r.status === "CANCELLED").length,
+  }
+
+  return (
+    <PageContainer>
+      <div className="space-y-6">
+
+        {/* Hero Section */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 to-slate-800 p-8 shadow-xl">
+          <div className="absolute right-0 top-0 -translate-y-1/4 translate-x-1/4 opacity-10 pointer-events-none">
+            <Laptop className="h-72 w-72 text-white" />
+          </div>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 text-white">
+              <h1 className="text-3xl font-bold tracking-tight">WFH Request Control Center</h1>
+              <p className="max-w-xl text-slate-300">
+                Review, approve and reject employee Work From Home requests with department, employee, date and status filters.
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <Badge className="bg-white/10 text-white hover:bg-white/20 border-0 font-medium px-3 py-1">
+                ACS HRMS WFH Desk
+              </Badge>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Department</span>
+                <Badge variant="outline" className="border-slate-600 text-slate-300">
+                  Status: {statusFilter}
+                </Badge>
+                <span className="text-sm font-medium text-slate-300">
+                  {wfhRequests.length} Requests
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {renderMetricCard("Total Requests", metrics.total, <ClipboardCheck className="h-5 w-5" />, "slate")}
+          {renderMetricCard("Pending", metrics.pending, <Clock className="h-5 w-5" />, "amber")}
+          {renderMetricCard("Approved", metrics.approved, <CheckCircle2 className="h-5 w-5" />, "emerald")}
+          {renderMetricCard("Rejected", metrics.rejected, <XCircle className="h-5 w-5" />, "red")}
+          {renderMetricCard("Cancelled", metrics.cancelled, <CalendarX className="h-5 w-5" />, "orange")}
+        </div>
+
+        {/* Premium Filter Card */}
+        <Card className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm backdrop-blur-md">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/60 bg-white/50 dark:bg-slate-900/50">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">WFH Request Filters</h3>
+            <p className="text-sm text-slate-500">Filter WFH requests by employee, department, request date and approval status.</p>
+          </div>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500 uppercase">Department</Label>
                 <select
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={filters.department_id != null ? String(filters.department_id) : "all"}
                   onChange={(e) => {
                     const v = e.target.value === "all" ? undefined : parseInt(e.target.value, 10)
-                    // Reset employee filter when department changes
                     setFilters((f) => ({ ...f, department_id: v, employee_id: undefined }))
                   }}
                   disabled={loading}
                 >
-                  <option value="all">All</option>
+                  <option value="all">All Departments</option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
                 </select>
               </div>
-              {/* Employee filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Employee</span>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500 uppercase">Employee</Label>
                 <select
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm max-w-[220px]"
+                  className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={filters.employee_id != null ? String(filters.employee_id) : "all"}
                   onChange={(e) => {
                     const v = e.target.value === "all" ? undefined : parseInt(e.target.value, 10)
@@ -428,7 +464,7 @@ export default function WfhApprovalsPage() {
                   }}
                   disabled={loading}
                 >
-                  <option value="all">All</option>
+                  <option value="all">All Employees</option>
                   {employees
                     .filter((e) => (filters.department_id ? e.department_id === filters.department_id : true))
                     .map((e) => (
@@ -436,280 +472,409 @@ export default function WfhApprovalsPage() {
                     ))}
                 </select>
               </div>
-              {/* Date range */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">From</span>
-                <input
-                  type="date"
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                  value={filters.from ?? ""}
-                  onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500 uppercase">From Date</Label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-3 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={filters.from ?? ""}
+                    onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+                    disabled={loading}
+                  />
+                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500 uppercase">To Date</Label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-3 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={filters.to ?? ""}
+                    onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+                    disabled={loading}
+                  />
+                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500 uppercase">Status</Label>
+                <select
+                  className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "ALL" | WfhStatus)}
                   disabled={loading}
-                />
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">To</span>
-                <input
-                  type="date"
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                  value={filters.to ?? ""}
-                  onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+                <Button
+                  variant="outline"
+                  onClick={resetFilters}
                   disabled={loading}
-                />
+                  className="h-10 flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-100"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+                <Button
+                  onClick={fetchWfh}
+                  disabled={loading}
+                  className="h-10 flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  {loading ? "" : "Refresh"}
+                </Button>
               </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Status</span>
-              {/* Simple status filter */}
-              <select
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as "ALL" | WfhStatus)
-                  // refresh list on filter change
-                  setTimeout(() => { fetchWfh() }, 0)
-                }}
-                disabled={loading}
-              >
-                <option value="ALL">All</option>
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchWfh}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Refreshing…
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="pt-4">
-            {loading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : apiError ? (
-              <EmptyState
-                icon={X}
-                title="Failed to load WFH requests"
-                description={apiError}
-              />
-            ) : wfhRequests.length === 0 ? (
-              <EmptyState
-                icon={Check}
-                title="No WFH requests"
-                description="There are no WFH requests in the system yet."
-              />
-            ) : filteredRequests.length === 0 ? (
-              <EmptyState
-                icon={Check}
-                title="No WFH requests for this status"
-                description="Try selecting a different status or refreshing."
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <AnimatedTable>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Reporting Manager</TableHead>
-                      <TableHead>Date / Range</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Decision (By / At / Remark)</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRequests.map((wfh, index) => (
-                      <AnimatedTableRow key={wfh.id} delay={index * 0.03}>
-                        <TableCell className="font-medium">
-                          {getEmployeeLabel(wfh.employee_id)}
-                        </TableCell>
-                        <TableCell>{getDepartmentName(wfh.department_id, wfh.employee_id, wfh)}</TableCell>
-                        <TableCell className="text-sm">
-                          {(() => {
-                            const emp = employees.find((e) => e.id === wfh.employee_id)
-                            if (!emp?.reporting_manager_id) return "-"
-                            const mgr = employees.find(
-                              (e) => e.id === emp.reporting_manager_id
-                            )
-                            return mgr
-                              ? `${mgr.name} (${mgr.emp_code})`
-                              : `Manager #${emp.reporting_manager_id}`
-                          })()}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatRange(wfh.request_date, undefined)}
-                        </TableCell>
-                        <TableCell className="max-w-xs text-sm truncate" title={wfh.reason || ""}>
-                          {wfh.reason || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={
-                              wfh.status === "PENDING" ? "bg-yellow-100 text-yellow-800 border-yellow-200" :
-                              wfh.status === "APPROVED" ? "bg-green-100 text-green-800 border-green-200" :
-                              wfh.status === "REJECTED" ? "bg-red-100 text-red-800 border-red-200" :
-                              "bg-gray-100 text-gray-800 border-gray-200"
-                            }
-                          >
-                            {wfh.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {renderDecisionSummary(wfh)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {wfh.status === "PENDING" && canActOnRequest(wfh) ? (
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenApprove(wfh)}
-                                disabled={submittingId === wfh.id}
-                              >
-                                {submittingId === wfh.id ? (
-                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                ) : (
-                                  <Check className="h-4 w-4 mr-1" />
-                                )}
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleOpenReject(wfh)}
-                                disabled={submittingId === wfh.id}
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                      </AnimatedTableRow>
-                    ))}
-                  </TableBody>
-                </AnimatedTable>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* API Error Card */}
+        {apiError && !loading && (
+          <Card className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900/50 shadow-sm overflow-hidden">
+            <div className="p-6 flex items-start gap-4">
+              <div className="h-10 w-10 shrink-0 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-900 dark:text-red-200 mb-1">Failed to load WFH requests</h3>
+                <p className="text-sm text-red-700 dark:text-red-300">{apiError}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={fetchWfh} className="border-red-200 text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-400">
+                Retry
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Main Content */}
+        {loading ? (
+          renderLoadingSkeleton()
+        ) : !apiError && filteredRequests.length === 0 ? (
+          <Card className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm p-12 flex flex-col items-center justify-center text-center">
+            <div className="h-16 w-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 mb-4">
+              <Laptop className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No WFH requests found</h3>
+            <p className="text-slate-500 max-w-md mb-6">
+              No Work From Home requests match the selected filters.
+            </p>
+            {(statusFilter !== "ALL" || Object.keys(filters).length > 0) && (
+              <Button variant="outline" onClick={resetFilters} className="rounded-xl border-slate-200 text-slate-600">
+                Reset Filters
+              </Button>
+            )}
+          </Card>
+        ) : !apiError ? (
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <Card className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800/60 bg-white/50 dark:bg-slate-900/50">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">WFH Request Register</h3>
+                    <p className="text-sm text-slate-500">Employee Work From Home requests with request date, reason, approval status and decision history.</p>
+                  </div>
+                  <Badge variant="secondary" className="rounded-lg px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium border-0">
+                    {filteredRequests.length} Records
+                  </Badge>
+                </div>
+                <div className="overflow-x-auto">
+                  <AnimatedTable className="min-w-[1100px]">
+                    <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+                      <TableRow className="hover:bg-transparent border-slate-200 dark:border-slate-800">
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Employee</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Department</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Request Date</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Reason</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Status</TableHead>
+                        <TableHead className="font-semibold text-slate-600 dark:text-slate-300 py-4">Decision</TableHead>
+                        <TableHead className="text-right font-semibold text-slate-600 dark:text-slate-300 py-4">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRequests.map((wfh, index) => {
+                        const emp = getEmployeeById(wfh.employee_id)
+                        return (
+                          <AnimatedTableRow
+                            key={wfh.id}
+                            delay={index * 0.02}
+                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors border-slate-100 dark:border-slate-800/60"
+                          >
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300">
+                                  {getInitials(emp?.name)}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-slate-900 dark:text-slate-100">{emp?.name || `Employee #${wfh.employee_id}`}</span>
+                                  {emp?.emp_code && <span className="text-xs font-mono text-slate-500">{emp.emp_code}</span>}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                <Building2 className="h-4 w-4 text-slate-400" />
+                                <span>{getDepartmentDisplay(wfh.department_id, wfh.employee_id, wfh)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 font-medium">
+                                <CalendarDays className="h-4 w-4 text-indigo-500" />
+                                {formatDateSafe(wfh.request_date)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div className="max-w-[320px] text-sm text-slate-600 dark:text-slate-300 line-clamp-2" title={wfh.reason || ""}>
+                                {wfh.reason || "—"}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              {renderStatusBadge(wfh.status)}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              {wfh.status === "PENDING" ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs text-slate-500 italic">Awaiting decision</span>
+                                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                                    <Clock className="h-3 w-3" />
+                                    {formatDateTimeSafe(wfh.applied_at)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-1 text-xs">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-500">By:</span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">{getEmployeeDisplay(wfh.approved_by || 0)}</span>
+                                    {wfh.approved_role && (
+                                      <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1 bg-slate-50 text-slate-600">{wfh.approved_role}</Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-500">
+                                    <Clock className="h-3 w-3" />
+                                    {formatDateTimeSafe(wfh.approved_at)}
+                                  </div>
+                                  {wfh.approval_remark && (
+                                    <div className="text-[11px] text-slate-600 dark:text-slate-400 italic truncate max-w-[200px]" title={wfh.approval_remark}>
+                                      "{wfh.approval_remark}"
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right py-4">
+                              {wfh.status === "PENDING" && canActOnRequest(wfh) ? (
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleOpenApprove(wfh)}
+                                    disabled={submittingId === wfh.id}
+                                    className="rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 shadow-none border border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400"
+                                  >
+                                    {submittingId === wfh.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleOpenReject(wfh)}
+                                    disabled={submittingId === wfh.id}
+                                    className="rounded-xl shadow-none"
+                                  >
+                                    {submittingId === wfh.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-medium">Completed</span>
+                              )}
+                            </TableCell>
+                          </AnimatedTableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </AnimatedTable>
+                </div>
+              </Card>
+            </div>
+
+            {/* Mobile Cards View */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+              {filteredRequests.map((wfh) => {
+                const emp = getEmployeeById(wfh.employee_id)
+                return (
+                  <Card key={wfh.id} className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-950/60 shadow-sm p-4">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300">
+                          {getInitials(emp?.name)}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{emp?.name || `Employee #${wfh.employee_id}`}</span>
+                          <span className="text-xs text-slate-500">{getDepartmentDisplay(wfh.department_id, wfh.employee_id, wfh)}</span>
+                        </div>
+                      </div>
+                      {renderStatusBadge(wfh.status)}
+                    </div>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500">Request Date</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <CalendarDays className="h-3 w-3 text-indigo-500" />
+                          {formatDateSafe(wfh.request_date)}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-slate-500 block mb-1">Reason</span>
+                        <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800 text-xs">
+                          {wfh.reason || "No reason provided"}
+                        </p>
+                      </div>
+                    </div>
+                    {wfh.status === "PENDING" && canActOnRequest(wfh) && (
+                      <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <Button
+                          className="flex-1 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 shadow-none border border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400"
+                          onClick={() => handleOpenApprove(wfh)}
+                          disabled={submittingId === wfh.id}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          className="flex-1 rounded-xl shadow-none"
+                          variant="destructive"
+                          onClick={() => handleOpenReject(wfh)}
+                          disabled={submittingId === wfh.id}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </Card>
+                )
+              })}
+            </div>
+          </>
+        ) : null}
       </div>
 
-      {/* Approve dialog */}
+      {/* Approve Dialog */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Approve WFH request</DialogTitle>
-            <DialogDescription>
-              {selectedWfh
-                ? `Approve WFH request for ${formatRange(
-                    selectedWfh.request_date,
-                    undefined
-                  )}?`
-                : "Approve this WFH request?"}
-            </DialogDescription>
+        <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden bg-white/95 dark:bg-slate-950/95 border-slate-200/60 dark:border-slate-800/60 shadow-2xl">
+          <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">Approve WFH Request</DialogTitle>
+                <DialogDescription className="mt-1 text-slate-500">
+                  Review the Work From Home request and add optional approval remarks.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Remarks (optional)</label>
-            <Textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter approval remarks (optional)"
-              rows={3}
-            />
+          <div className="p-6">
+            {renderWfhSummaryCard(selectedWfh)}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Approval Remarks <span className="text-slate-400 font-normal">(Optional)</span></Label>
+              <Textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Enter approval remarks..."
+                rows={3}
+                className="rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus-visible:ring-emerald-500"
+              />
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <Button
               variant="outline"
               onClick={() => setApproveOpen(false)}
               disabled={submittingId !== null}
+              className="rounded-xl border-slate-200 dark:border-slate-700"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmApprove}
               disabled={submittingId !== null}
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
               {submittingId !== null ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Approving…
                 </>
               ) : (
-                "Approve"
+                "Approve Request"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reject dialog */}
+      {/* Reject Dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject WFH request</DialogTitle>
-            <DialogDescription>
-              {selectedWfh
-                ? `Reject WFH request for ${formatRange(
-                    selectedWfh.request_date,
-                    undefined
-                  )}?`
-                : "Reject this WFH request?"}
-            </DialogDescription>
+        <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden bg-white/95 dark:bg-slate-950/95 border-slate-200/60 dark:border-slate-800/60 shadow-2xl">
+          <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl">
+                <XCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">Reject WFH Request</DialogTitle>
+                <DialogDescription className="mt-1 text-slate-500">
+                  Add rejection remarks for employee and audit reference.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Remarks (optional)</label>
-            <Textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter reason for rejection (optional)"
-              rows={3}
-            />
+          <div className="p-6">
+            {renderWfhSummaryCard(selectedWfh)}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Rejection Remarks <span className="text-red-500">*</span></Label>
+              </div>
+              <Textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Enter clear reason for rejection..."
+                rows={3}
+                className="rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus-visible:ring-red-500"
+              />
+              <p className="text-xs text-red-500">Remarks are recommended when rejecting a WFH request.</p>
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <Button
               variant="outline"
               onClick={() => setRejectOpen(false)}
               disabled={submittingId !== null}
+              className="rounded-xl border-slate-200 dark:border-slate-700"
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
               onClick={handleConfirmReject}
               disabled={submittingId !== null}
+              variant="destructive"
+              className="rounded-xl shadow-sm"
             >
               {submittingId !== null ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Rejecting…
                 </>
               ) : (
-                "Reject"
+                "Reject Request"
               )}
             </Button>
           </DialogFooter>
@@ -718,4 +883,3 @@ export default function WfhApprovalsPage() {
     </PageContainer>
   )
 }
-

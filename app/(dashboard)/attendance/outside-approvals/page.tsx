@@ -305,8 +305,8 @@ export default function OutsideApprovalsPage() {
                         <div className="font-medium text-slate-700 dark:text-slate-300">{format(new Date(session.work_date), "MMM d, yyyy")}</div>
                         <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <Clock className="h-3 w-3" />
-                          {session.punch_in_at ? format(new Date(session.punch_in_at), "h:mm a") : "--"}
-                          {session.punch_out_at ? ` - ${format(new Date(session.punch_out_at), "h:mm a")}` : ""}
+                          {(session as any).punch_in_time || session.punch_in_at ? format(new Date((session as any).punch_in_time || session.punch_in_at), "h:mm a") : "--"}
+                          {(session as any).punch_out_time || session.punch_out_at ? ` - ${format(new Date((session as any).punch_out_time || session.punch_out_at), "h:mm a")}` : ""}
                         </div>
                       </TableCell>
                       <TableCell>
