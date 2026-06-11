@@ -161,7 +161,7 @@ export default function OutsideApprovalsPage() {
   const wfhCount = sessions.filter(s => s.outside_reason_type === "WFH").length
 
   return (
-    <RequireRole allowedRoles={["ADMIN", "HR", "MANAGER"]}>
+    <RequireRole allowedRoles={["ADMIN", "HR", "MANAGER", "MD", "VP"]}>
       <div className="space-y-6">
         {/* 1. Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-950 to-orange-800 p-8 shadow-xl">
