@@ -68,6 +68,7 @@ type WfhRequest = {
   status: WfhStatus
   applied_at?: string | null
   approved_by?: number | null
+  approver?: { id: number; name: string; role: string } | null
   approved_role?: string | null
   approved_at?: string | null
   approval_remark?: string | null
@@ -164,9 +165,12 @@ export default function WfhApprovalsPage() {
     return employees.find((e) => e.id === employeeId)
   }
 
-  const getEmployeeDisplay = (employeeId: number) => {
+  const getEmployeeDisplay = (employeeId: number | undefined | null, approverObj?: { name: string } | null) => {
+    if (approverObj && approverObj.name) return approverObj.name
+    if (!employeeId) return "Unknown"
     const emp = getEmployeeById(employeeId)
-    return emp ? emp.name : `Employee #${employeeId}`
+    if (emp) return emp.name
+    return `System User #${employeeId}`
   }
 
   const getDepartmentDisplay = (departmentId?: number | null, employeeId?: number, wfhRequest?: any) => {
@@ -652,7 +656,7 @@ export default function WfhApprovalsPage() {
                                 <div className="flex flex-col gap-1 text-xs">
                                   <div className="flex items-center gap-1">
                                     <span className="text-slate-500">By:</span>
-                                    <span className="font-medium text-slate-700 dark:text-slate-300">{getEmployeeDisplay(wfh.approved_by || 0)}</span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">{getEmployeeDisplay(wfh.approved_by, wfh.approver)}</span>
                                     {wfh.approved_role && (
                                       <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1 bg-slate-50 text-slate-600">{wfh.approved_role}</Badge>
                                     )}
